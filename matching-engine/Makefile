@@ -1,4 +1,4 @@
-CC = gcc
+CC = clang
 CFLAGS = -Wall -g
 INCLUDES = -I. -I/usr/local/include
 LFLAGS = -L/usr/local/lib -Xlinker -rpath -Xlinker /usr/local/lib

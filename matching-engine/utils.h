@@ -2,7 +2,7 @@
 #define UTILS_H
 
 #include <ctype.h>
-#include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,7 +45,7 @@ void to_upper(char* str) {
 
 char* sig_to_string(const int sig) {
   char* name = (char*)malloc(sizeof(char) * 10);
-  char* signame = strdup(sys_signame[sig]);
+  char* signame = strsignal(sig);
   to_upper(signame);
   snprintf(name, 10, "SIG%s", signame);
   return name;
