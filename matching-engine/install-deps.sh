@@ -41,7 +41,11 @@ echo "Installing log.h..."
     cd log.c && \
     clang -DLOG_USE_COLOR -c -o log.o src/log.c && \
     sudo ar r $LIB_DIR/liblog.a log.o && \
-    sudo clang -dynamiclib -o $LIB_DIR/liblog.dylib log.o && \
+    if [[ "$OSTYPE" == "linux-gnu" ]]; then
+        sudo clang -shared -o $LIB_DIR/liblog.so log.o
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        sudo clang -dynamiclib -o $LIB_DIR/liblog.dylib log.o
+    fi && \
     sudo mkdir $INCLUDE_DIR/log && \
     sudo cp src/log.h $INCLUDE_DIR/log/log.h && \
     cd .. && \
