@@ -36,7 +36,7 @@ void signal_handler(int sig) {
 
 redisContext* connect_redis() {
   redisOptions redisOptions = {0};
-  REDIS_OPTIONS_SET_TCP(&redisOptions, "localhost", 6379);
+  REDIS_OPTIONS_SET_UNIX(&redisOptions, "/tmp/docker/redis.sock");
 
   redisContext* redis = redisConnectWithOptions(&redisOptions);
   if (redis == NULL || redis->err) {
@@ -97,7 +97,7 @@ void redis_auth_callback(redisAsyncContext* c, void* r, void* privdata) {
 
 redisAsyncContext* connect_redis_async() {
   redisOptions redisOptions = {0};
-  REDIS_OPTIONS_SET_TCP(&redisOptions, "localhost", 6379);
+  REDIS_OPTIONS_SET_UNIX(&redisOptions, "/tmp/docker/redis.sock");
 
   redisAsyncContext* redis = redisAsyncConnectWithOptions(&redisOptions);
   if (redis == NULL || redis->err) {
