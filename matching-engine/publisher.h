@@ -26,7 +26,7 @@ void publish_message(message_t message) {
   if (g_messages_count == G_MESSAGES_MAX) {
     while (g_messages_count != g_processed_messages_count) {
       printf(
-          "[WARN] resetting g_messages_count to 0: waiting for %lu remaining "
+          "[WARN] resetting g_messages_count to 0: waiting for %llu remaining "
           "messages to be handled\n",
           g_messages_count - g_processed_messages_count);
       struct timespec ts = {.tv_sec = 0, .tv_nsec = 10000000};  // 10ms
@@ -37,7 +37,7 @@ void publish_message(message_t message) {
   }
 
   g_messages[g_messages_count] = message;
-  printf("[DEBUG] added message %lu to queue\n", g_messages_count);
+  printf("[DEBUG] added message %llu to queue\n", g_messages_count);
   g_messages_count++;
 }
 
@@ -69,12 +69,11 @@ void publish_trade(const char* symbol,
 #define PUBLISHER_CONSOLE 0
 #define PUBLISHER_REDIS 1
 
-typedef struct {
+static struct {
   int* publishers;
   uint8_t publishers_count;
   redisContext* redis;
-} _publisher;
-static _publisher PUBLISHER = {
+} PUBLISHER = {
     .publishers = NULL,
     .publishers_count = 0,
     .redis = NULL,

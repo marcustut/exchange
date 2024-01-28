@@ -1,6 +1,6 @@
+#include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <signal.h>
 
 #include <cjson/cJSON.h>
 #include <hiredis/hiredis.h>
@@ -13,13 +13,11 @@
 #define SYMBOLS 21
 
 static volatile bool running = true;
-const int SIGNALS[] = {SIGINT, SIGTERM};
 
 void signal_handler(int sig) {
-  char* signame = sig_to_string(sig);
+  const char* signame = sig_to_string(sig);
   printf("Caught signal %s\n", signame);
   running = false;
-  free(signame);
 }
 
 redisContext* connect_redis() {
@@ -48,40 +46,6 @@ redisContext* connect_redis() {
   return redis;
 }
 
-typedef struct {
-  const char* market;
-  const char* topic;
-  const char* symbol;
-} channel_t;
-
-channel_t* channel_from_str(char* str) {
-  channel_t* channel = malloc(sizeof(channel_t));
-
-  const char* token = strtok(str, ":");
-  if (token != NULL)
-    channel->market = token;
-  else
-    goto err;
-
-  token = strtok(NULL, ":");
-  if (token != NULL)
-    channel->topic = token;
-  else
-    goto err;
-
-  token = strtok(NULL, ":");
-  if (token != NULL)
-    channel->symbol = token;
-  else
-    goto err;
-
-  return channel;
-
-err:
-  free(channel);
-  return NULL;
-}
-
 struct engine_map_s {
   engine_t engine;
 };
@@ -98,9 +62,9 @@ int main(void) {
   for (int i = 0; i < sizeof(SIGNALS) / sizeof(SIGNALS[0]); i++) {
     struct sigaction sa;
     sa.sa_handler = signal_handler;
-    if (sigaction(SIGNALS[i], &sa, NULL) == -1) {
+    if (sigaction(SIGNALS[i].value, &sa, NULL) == -1) {
       perror("failed to register signal handler");
-      exit(1);
+      return 1;
     }
   }
 

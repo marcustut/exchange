@@ -3,9 +3,9 @@
 
 #include <ctype.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include <time.h>
 
 #define MIN(a, b)           \
@@ -43,12 +43,62 @@ void to_upper(char* str) {
   }
 }
 
-char* sig_to_string(const int sig) {
-  char* name = (char*)malloc(sizeof(char) * 10);
-  char* signame = strsignal(sig);
-  to_upper(signame);
-  snprintf(name, 10, "SIG%s", signame);
+#define SIGNAMEANDNUM(s) \
+  { #s, s }
+
+static struct {
+  const char* name;
+  int value;
+} SIGNALS[] = {
+    SIGNAMEANDNUM(SIGINT),
+    SIGNAMEANDNUM(SIGTERM),
+};
+
+const char* sig_to_string(int s) {
+  const char* name = NULL;
+
+  for (int i = 0; i < sizeof(SIGNALS) / sizeof(*SIGNALS); i++) {
+    if (s == SIGNALS[i].value) {
+      name = SIGNALS[i].name;
+      break;
+    }
+  }
+
   return name;
+}
+
+typedef struct {
+  const char* market;
+  const char* topic;
+  const char* symbol;
+} channel_t;
+
+channel_t* channel_from_str(char* str) {
+  channel_t* channel = malloc(sizeof(channel_t));
+
+  const char* token = strtok(str, ":");
+  if (token != NULL)
+    channel->market = token;
+  else
+    goto err;
+
+  token = strtok(NULL, ":");
+  if (token != NULL)
+    channel->topic = token;
+  else
+    goto err;
+
+  token = strtok(NULL, ":");
+  if (token != NULL)
+    channel->symbol = token;
+  else
+    goto err;
+
+  return channel;
+
+err:
+  free(channel);
+  return NULL;
 }
 
 #endif /* UTILS_H */
