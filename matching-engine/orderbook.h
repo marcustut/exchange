@@ -8,7 +8,16 @@
 
 enum side_e { BID, ASK };
 
-enum side_e inverse_side(const enum side_e side) {
+enum side_e side_from_string(const char* side_str) {
+  if (strcmp(side_str, "BUY") == 0)
+    return BID;
+  else if (strcmp(side_str, "SELL") == 0)
+    return ASK;
+  else
+    return -1;
+}
+
+enum side_e side_inverse(const enum side_e side) {
   switch (side) {
     case BID:
       return ASK;
@@ -17,12 +26,12 @@ enum side_e inverse_side(const enum side_e side) {
   }
 }
 
-const char* to_string(const enum side_e side) {
+const char* side_to_string(const enum side_e side) {
   switch (side) {
     case BID:
-      return "BID";
+      return "BUY";
     case ASK:
-      return "ASK";
+      return "SELL";
   }
 }
 
@@ -52,12 +61,13 @@ orderbook_t orderbook_new(const size_t max_depth) {
 void orderbook_free(orderbook_t orderbook) {
   free(orderbook.bids);
   free(orderbook.asks);
+  printf("[DEBUG] orderbook_t has been freed\n");
 }
 
 void orderbook_add(orderbook_t* orderbook,
                    const enum side_e side,
-                   int64_t price,
-                   uint32_t quantity) {
+                   const int64_t price,
+                   const uint32_t quantity) {
   size_t* count = NULL;
   level_t* levels = NULL;
 
@@ -72,48 +82,86 @@ void orderbook_add(orderbook_t* orderbook,
       break;
   }
 
-  if (*count >= orderbook->max_depth)
+  if (*count >= orderbook->max_depth) {
+    printf("Failed to add to orderbook, it is full\n");
     return;
+  }
 
   level_t level = (level_t){.price = price, .quantity = quantity};
-  size_t i = *count - 1;
+  int i = *count - 1;
+
+  // If the orderbook is empty, just add the level and return
+  if (*count == 0) {
+    levels[*count] = level;
+    *count = *count + 1;
+    return;
+  }
+
+// This macro finds the position of the level in the orderbook
+#define FIND_POS(side, price, level_price) \
+  ((side) == BID ? (price) < (level_price) : (price) > (level_price))
+
+  while (i >= 0) {
+    // If the level already exists, just add the quantity
+    if (level.price == levels[i].price) {
+      levels[i].quantity += level.quantity;
+      return;
+    }
+
+    if (FIND_POS(side, level.price, levels[i].price))
+      levels[i + 1] = level;
+    // if can't find the position, keep shifting the levels until the position
+    // is right
+    else {
+      level_t old_level = levels[i];
+      levels[i] = level;
+      levels[i + 1] = old_level;
+    }
+
+    i--;
+  }
+
+  (*count)++;  // increment count since a new level is added
+#undef FIND_POS
+}
+
+/**
+ * Finds the best price to fill the given quantity.
+ * Note that this function returns `0` if no price is found.
+ *
+ * @param orderbook The orderbook
+ * @param side The side of the order
+ * @param quantity The quantity to fill
+ */
+int64_t orderbook_best_price_to_fill(const orderbook_t* orderbook,
+                                     const enum side_e side,
+                                     const uint32_t quantity) {
+  size_t size = 0;
+  level_t* levels = NULL;
 
   switch (side) {
     case BID:
-      if (*count == 0)
-        levels[*count] = level;
-      else if (level.price < levels[i].price)
-        levels[*count] = level;
-      else if (level.price > levels[i].price) {
-        level_t old_level = levels[i];
-        levels[i] = level;
-        levels[*count] = old_level;
-      } else {
-        levels[i].quantity += level.quantity;
-        return;
-      }
+      size = orderbook->asks_count;
+      levels = orderbook->asks;
       break;
     case ASK:
-      if (*count == 0)
-        levels[*count] = level;
-      else if (level.price > levels[i].price)
-        levels[*count] = level;
-      else if (level.price < levels[i].price) {
-        level_t old_level = levels[i];
-        levels[i] = level;
-        levels[*count] = old_level;
-      } else {
-        levels[i].quantity += level.quantity;
-        return;
-      }
+      size = orderbook->bids_count;
+      levels = orderbook->bids;
       break;
   }
 
-  // increment count
-  *count = *count + 1;
+  int64_t remaining_qty = quantity;
+
+  for (size_t i = 0; i < size; i++) {
+    remaining_qty -= levels[i].quantity;
+    if (remaining_qty <= 0)
+      return levels[i].price;
+  }
+
+  return 0;
 }
 
-level_t* orderbook_top_n(orderbook_t* orderbook,
+level_t* orderbook_top_n(const orderbook_t* orderbook,
                          const enum side_e side,
                          const size_t count) {
   size_t size = 0;
@@ -140,19 +188,27 @@ level_t* orderbook_top_n(orderbook_t* orderbook,
   return top_levels;
 }
 
-void level_print(level_t* level) {
+void level_print(const enum side_e side, const level_t* level) {
+  int color = side == BID ? 32 /* GREEN */ : 31 /* RED */;
   // printf("%.9f (%.6f)\n", level->price / 1e9, level->quantity / 1e6);
-  printf("%.2f (%.3f)\n", level->price / 1e9, level->quantity / 1e6);
+  printf("| \033[1;%dm%.2f (%.3f)\033[1;0m |\n", color, level->price / 1e9,
+         level->quantity / 1e6);
 }
 
-void orderbook_print(orderbook_t* orderbook) {
+void orderbook_print(const orderbook_t* orderbook) {
   if (orderbook->asks_count == 0 && orderbook->bids_count == 0)
     return;
-  for (size_t i = 0; i < orderbook->asks_count; i++)
-    level_print(&orderbook->asks[i]);
-  printf("-------------------------------------------\n");
+  printf("-------------------\n");
+  if (orderbook->asks_count == 0)
+    printf("| NO ASKS         |\n");
+  for (int i = orderbook->asks_count - 1; i >= 0; i--)
+    level_print(ASK, &orderbook->asks[i]);
+  printf("-------------------\n");
+  if (orderbook->bids_count == 0)
+    printf("| NO BIDS         |\n");
   for (size_t i = 0; i < orderbook->bids_count; i++)
-    level_print(&orderbook->bids[i]);
+    level_print(BID, &orderbook->bids[i]);
+  printf("-------------------\n");
   printf("\n");
 }
 

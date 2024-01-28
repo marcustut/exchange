@@ -1,9 +1,14 @@
 #ifndef ENGINE_H
 #define ENGINE_H
 
+#include <inttypes.h>
 #include <stdbool.h>
+#include <stdio.h>
+
+#include <cjson/cJSON.h>
 
 #include "orderbook.h"
+#include "publisher.h"
 #include "utils.h"
 
 typedef struct {
@@ -12,15 +17,55 @@ typedef struct {
   uint32_t quantity;
 } order_t;
 
+order_t* order_from_json(cJSON* json) {
+  order_t* order = (order_t*)malloc(sizeof(order_t));
+
+  cJSON* side_elem = cJSON_GetObjectItemCaseSensitive(json, "side");
+  if (side_elem == NULL || !cJSON_IsString(side_elem)) {
+    fprintf(stderr, "[ERROR] side is missing or not a string\n");
+    free(order);
+    return NULL;
+  }
+
+  order->side = side_from_string(side_elem->valuestring);
+  if (order->side == -1) {
+    fprintf(stderr, "[ERROR] side '%s' is invalid\n", side_elem->valuestring);
+    free(order);
+    return NULL;
+  }
+
+  cJSON* price_elem = cJSON_GetObjectItemCaseSensitive(json, "price");
+  if (price_elem == NULL || !cJSON_IsString(price_elem)) {
+    fprintf(stderr, "[ERROR] price is missing or not a string\n");
+    free(order);
+    return NULL;
+  }
+  order->price = strtoimax(price_elem->valuestring, NULL, 10);
+
+  cJSON* quantity_elem = cJSON_GetObjectItemCaseSensitive(json, "quantity");
+  if (quantity_elem == NULL || !cJSON_IsString(quantity_elem)) {
+    fprintf(stderr, "[ERROR] quantity is missing or not a string\n");
+    free(order);
+    return NULL;
+  }
+  order->quantity =
+      strtoumax(cJSON_GetObjectItem(json, "quantity")->valuestring, NULL, 10);
+
+  return order;
+}
+
 typedef struct {
+  const char* symbol;
   orderbook_t orderbook;
   uint64_t current_order_id;
   uint64_t current_trade_id;
-  // TODO: Some redis handle that we can use to publish events
 } engine_t;
 
-engine_t engine_new(const size_t max_depth) {
-  return (engine_t){.orderbook = orderbook_new(max_depth)};
+engine_t engine_new(const char* symbol, const size_t max_depth) {
+  return (engine_t){.symbol = symbol,
+                    .orderbook = orderbook_new(max_depth),
+                    .current_order_id = 0,
+                    .current_trade_id = 0};
 }
 
 uint64_t engine_next_order_id(engine_t* engine) {
@@ -29,25 +74,6 @@ uint64_t engine_next_order_id(engine_t* engine) {
 
 uint64_t engine_next_trade_id(engine_t* engine) {
   return ++engine->current_trade_id;
-}
-
-void publish_trade(const uint64_t trade_id,
-                   const enum side_e side,
-                   const uint64_t price,
-                   const uint32_t quantity) {
-  printf("[TRADE] %lld: %.2f (%s %.3f) at %lld\n", trade_id, price / 1e9,
-         to_string(side), quantity / 1e6, timestamp_nanos());
-}
-
-bool is_match(const enum side_e side,
-              const int64_t price,
-              const int64_t order_price) {
-  switch (side) {
-    case BID:
-      return price <= order_price;
-    case ASK:
-      return price >= order_price;
-  }
 }
 
 void engine_match(engine_t* engine, order_t order) {
@@ -67,9 +93,12 @@ void engine_match(engine_t* engine, order_t order) {
       break;
   }
 
+#define IS_MATCH(side, price, order_price) \
+  ((side) == BID ? (price) <= (order_price) : (price) >= (order_price))
+
   for (size_t i = 0; i < *count; i++) {
     if (order.quantity <= 0 ||
-        !is_match(order.side, levels[i].price, order.price))
+        !IS_MATCH(order.side, levels[i].price, order.price))
       break;
 
     uint32_t matched_qty = CLAMP(order.quantity, 0, levels[i].quantity);
@@ -81,34 +110,35 @@ void engine_match(engine_t* engine, order_t order) {
     // TODO: Publish O2 OrderStatus::Filled /
     // OrderStatus::PartiallyFilled)
 
-    publish_trade(engine_next_trade_id(engine), order.side, levels[i].price,
-                  matched_qty);
+    publish_trade(engine->symbol, engine_next_trade_id(engine), order.side,
+                  levels[i].price, matched_qty, timestamp_nanos());
 
-    // Clean up levels that have been fully filled
+    // Delete if the level is fully filled
     if (levels[i].quantity == 0) {
       for (size_t j = i; j < *count - 1; j++)
         levels[j] = levels[j + 1];
-      (*count)--;
+      (*count)--, i--;
     }
   }
 
   if (order.quantity > 0)
     orderbook_add(ob, order.side, order.price, order.quantity);
+
+#undef IS_MATCH
 }
 
 void engine_new_order(engine_t* engine, order_t order) {
   // if the order is a taker order, then use the current best price
   if (order.price == 0) {
-    level_t* top_level =
-        orderbook_top_n(&engine->orderbook, inverse_side(order.side), 1);
+    order.price = orderbook_best_price_to_fill(&engine->orderbook, order.side,
+                                               order.quantity);
 
-    if (top_level == NULL) {
+    // the function returns 0 if there is no liquidity
+    if (order.price == 0) {
+      printf("[DEBUG] No liquidity\n");
       // TODO: Publish OrderStatus::Rejected (no liquidity)
       return;
     }
-
-    order.price = top_level->price;
-    free(top_level);
   }
 
   // TODO: Publish OrderStatus::Created
@@ -119,6 +149,7 @@ void engine_new_order(engine_t* engine, order_t order) {
 
 void engine_free(engine_t engine) {
   orderbook_free(engine.orderbook);
+  printf("[DEBUG] engine_t has been freed\n");
 }
 
 #endif /* ENGINE_H */
