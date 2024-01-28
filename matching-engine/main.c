@@ -3,216 +3,229 @@
 #include <unistd.h>
 
 #include <cjson/cJSON.h>
+#include <hiredis/adapters/poll.h>
+#include <hiredis/async.h>
 #include <hiredis/hiredis.h>
 
 #include "engine.h"
+#include "orderbook.h"
 #include "publisher.h"
+#include "utils.h"
 
 #define MAX_DEPTH UINT16_MAX
 #define ORDERS 10
 #define SYMBOLS 21
 
+static struct {
+  engine_t engines[SYMBOLS];
+} state;
+
 static volatile bool running = true;
 
 void signal_handler(int sig) {
   const char* signame = sig_to_string(sig);
-  printf("Caught signal %s\n", signame);
+  log_warn("Caught signal %s", signame);
+
+  if (sig == SIGPIPE) {
+    log_warn("Ignoring SIGPIPE");
+    return;
+  }
+
   running = false;
 }
 
 redisContext* connect_redis() {
   redisOptions redisOptions = {0};
   REDIS_OPTIONS_SET_TCP(&redisOptions, "localhost", 6379);
+
   redisContext* redis = redisConnectWithOptions(&redisOptions);
   if (redis == NULL || redis->err) {
     if (redis) {
-      fprintf(stderr, "[ERROR] Failed connecting to Redis: %s\n",
-              redis->errstr);
+      log_error("Failed connecting to Redis: %s", redis->errstr);
       redisFree(redis);
     } else
-      fprintf(stderr, "[ERROR] Can't allocate redis context\n");
+      log_error("Can't allocate redis context");
     return NULL;
   }
+
   redisReply* reply =
       redisCommand(redis, "AUTH %s", "redis");  // TODO: Replace with config
-  if (reply->type == REDIS_REPLY_ERROR) {
-    fprintf(stderr, "[ERROR] Failed authenticating to Redis: %s\n", reply->str);
-    freeReplyObject(reply);
-    redisFree(redis);
-    return NULL;
-  }
-  printf("[DEBUG] connected to redis successfully\n");
+  CHECK_ERR(
+      reply->type == REDIS_REPLY_ERROR,
+      {
+        freeReplyObject(reply);
+        redisFree(redis);
+        return NULL;
+      },
+      "Failed authenticating to Redis: %s", reply->str);
+
+  log_info("Connected to redis successfully");
   freeReplyObject(reply);
   return redis;
 }
 
-struct engine_map_s {
-  engine_t engine;
-};
-
-engine_t* engine_map_get(struct engine_map_s* map, const char* symbol) {
-  for (int i = 0; i < SYMBOLS; i++)
-    if (strcmp(map[i].engine.symbol, symbol) == 0)
-      return &map[i].engine;
-  return NULL;
+void redis_connect_callback(const redisAsyncContext* c, int status) {
+  if (status != REDIS_OK) {
+    log_error("Failed connecting to redis: %s", c->errstr);
+    running = false;
+    return;
+  }
+  log_info("Connected to redis successfully");
 }
 
-int main(void) {
-  // Register signal handlers
-  for (int i = 0; i < sizeof(SIGNALS) / sizeof(SIGNALS[0]); i++) {
-    struct sigaction sa;
-    sa.sa_handler = signal_handler;
-    if (sigaction(SIGNALS[i].value, &sa, NULL) == -1) {
-      perror("failed to register signal handler");
-      return 1;
-    }
+void redis_disconnect_callback(const redisAsyncContext* c, int status) {
+  running = false;  // TODO: Should make a connection pool (so we can reconnect)
+  if (status != REDIS_OK) {
+    log_error("Failed connecting to redis: %s", c->errstr);
+    return;
+  }
+  log_warn("Disconnected from redis");
+}
+
+void redis_auth_callback(redisAsyncContext* c, void* r, void* privdata) {
+  redisReply* reply = r;
+  if (reply == NULL)
+    return;
+  CHECK_ERR(
+      reply->type == REDIS_REPLY_ERROR,
+      {
+        running = false;
+        return;
+      },
+      "Failed authenticating with redis: %s", reply->str);
+}
+
+redisAsyncContext* connect_redis_async() {
+  redisOptions redisOptions = {0};
+  REDIS_OPTIONS_SET_TCP(&redisOptions, "localhost", 6379);
+
+  redisAsyncContext* redis = redisAsyncConnectWithOptions(&redisOptions);
+  if (redis == NULL || redis->err) {
+    if (redis) {
+      log_error("Failed connecting to Redis: %s", redis->errstr);
+      redisAsyncFree(redis);
+    } else
+      log_error("Can't allocate redis context");
+    return NULL;
   }
 
-  struct engine_map_s engine_map[SYMBOLS] = {
-      {.engine = engine_new("BTCUSDT", MAX_DEPTH)},
-      {.engine = engine_new("ETHUSDT", MAX_DEPTH)},
-      {.engine = engine_new("BNBUSDT", MAX_DEPTH)},
-      {.engine = engine_new("DOGEUSDT", MAX_DEPTH)},
-      {.engine = engine_new("ADAUSDT", MAX_DEPTH)},
-      {.engine = engine_new("XRPUSDT", MAX_DEPTH)},
-      {.engine = engine_new("DOTUSDT", MAX_DEPTH)},
-      {.engine = engine_new("UNIUSDT", MAX_DEPTH)},
-      {.engine = engine_new("BCHUSDT", MAX_DEPTH)},
-      {.engine = engine_new("LTCUSDT", MAX_DEPTH)},
-      {.engine = engine_new("LINKUSDT", MAX_DEPTH)},
-      {.engine = engine_new("MATICUSDT", MAX_DEPTH)},
-      {.engine = engine_new("SOLUSDT", MAX_DEPTH)},
-      {.engine = engine_new("ETCUSDT", MAX_DEPTH)},
-      {.engine = engine_new("THETAUSDT", MAX_DEPTH)},
-      {.engine = engine_new("ICPUSDT", MAX_DEPTH)},
-      {.engine = engine_new("XLMUSDT", MAX_DEPTH)},
-      {.engine = engine_new("VETUSDT", MAX_DEPTH)},
-      {.engine = engine_new("FILUSDT", MAX_DEPTH)},
-      {.engine = engine_new("TRXUSDT", MAX_DEPTH)},
-      {.engine = engine_new("EOSUSDT", MAX_DEPTH)},
-  };
+  redisAsyncCommand(redis, redis_auth_callback, NULL, "AUTH %s",
+                    "redis");  // TODO: Replace with config
+  redisAsyncSetConnectCallback(redis, redis_connect_callback);
+  redisAsyncSetDisconnectCallback(redis, redis_connect_callback);
 
-  redisContext* publisher = connect_redis();
-  if (publisher == NULL)
-    return 1;
+  return redis;
+}
 
-  publisher_set_redis(publisher);
-  publisher_add(PUBLISHER_CONSOLE);
-  publisher_add(PUBLISHER_REDIS);
-  pthread_t publisher_thread = publisher_thread_start();
+void redis_handle_order_message(redisAsyncContext* c, void* r, void* privdata) {
+  redisReply* reply = r;
+  if (reply == NULL)
+    return;
 
-  /* order_t orders[ORDERS] = { */
-  /*     {.side = BID, .price = 98e10, .quantity = 1e3}, */
-  /*     {.side = ASK, .price = 102e10, .quantity = 1e3}, */
-  /*     {.side = BID, .price = 99e10, .quantity = 1e3}, */
-  /*     {.side = ASK, .price = 103e10, .quantity = 1e3}, */
-  /*     {.side = BID, .price = 100e10, .quantity = 1e3}, */
-  /*     {.side = ASK, .price = 101e10, .quantity = 1e3}, */
-  /*     {.side = BID, .price = 0, .quantity = 2e3}, */
-  /*     {.side = ASK, .price = 0, .quantity = 1e3}, */
-  /*     {.side = BID, .price = 0, .quantity = 1e3}, */
-  /*     {.side = ASK, .price = 0, .quantity = 1e3}, */
-  /* }; */
+  CHECK_LOG(LOG_TRACE, reply->type != REDIS_REPLY_ARRAY, return,
+            "Unexpected reply type: %d, expected: %d", reply->type,
+            REDIS_REPLY_ARRAY);
 
-  /* for (int i = 0; i < ORDERS; i++) { */
-  /*   engine_new_order(&engine, orders[i]); */
-  /*   orderbook_print(&engine.orderbook); */
-  /* } */
+  CHECK_ERR(reply->elements < 3, return, "Unexpected number of elements: %zu",
+            reply->elements)
 
-  // TODO: Change to async (at the moment it's blocking)
-  redisContext* subscriber = connect_redis();
-  redisReply* reply =
-      redisCommand(subscriber, "PSUBSCRIBE %s:orders:*", "futures");
-  freeReplyObject(reply);
-  while (running) {
-    if (redisGetReply(subscriber, (void*)&reply) != REDIS_OK)
-      fprintf(stderr, "[ERROR] Failed reading from Redis: %s\n",
-              subscriber->errstr);
-
-    if (reply->type != REDIS_REPLY_ARRAY)
-      fprintf(stderr, "[ERROR] Unexpected reply type: %d (%s)\n", reply->type,
-              reply->str);
-
-    if (reply->elements != 4)
-      fprintf(stderr, "[ERROR] Unexpected number of elements: %zu\n",
-              reply->elements);
-
-    // Ignore replies that are not our responses
-    if (strcmp(reply->element[0]->str, "pmessage") != 0) {
-      freeReplyObject(reply);
-      continue;
-    }
-
-    redisReply* channel_elem = reply->element[2];
-    if (channel_elem->type != REDIS_REPLY_STRING) {
-      fprintf(stderr, "[ERROR] Unexpected reply type: %d (%s)\n",
-              channel_elem->type, channel_elem->str);
-      freeReplyObject(reply);
-      continue;
-    }
-    char* _channel = channel_elem->str;
-    if (_channel == NULL || strlen(_channel) == 0) {
-      fprintf(stderr, "[ERROR] Received NULL or empty channel\n");
-      freeReplyObject(reply);
-      continue;
-    }
+  if (strcmp(reply->element[0]->str, "pmessage") == 0) {
+    const char* _channel = reply->element[2]->str;
     channel_t* channel = channel_from_str(strdup(_channel));
 
-    redisReply* msg_elem = reply->element[3];
-    if (msg_elem->type != REDIS_REPLY_STRING) {
-      fprintf(stderr, "[ERROR] Unexpected reply type: %d (%s)\n",
-              msg_elem->type, msg_elem->str);
-      freeReplyObject(reply);
-      continue;
-    }
-    const char* msg = msg_elem->str;
-    if (msg == NULL || strlen(msg) == 0) {
-      fprintf(stderr, "[ERROR] Received NULL or empty message\n");
-      freeReplyObject(reply);
-      continue;
-    }
+    const char* msg = reply->element[3]->str;
+    CHECK_LOG(LOG_WARN, msg == NULL || strlen(msg) == 0, return,
+              "Received NULL or empty msg");
 
-    printf("[DEBUG] Received message from '%s': %s\n", _channel, msg);
+    log_trace("Received message from '%s': %s", _channel, msg);
     const char* parse_end = NULL;
     cJSON* value = cJSON_ParseWithOpts(msg, &parse_end, true);
-    if (value == NULL) {
-      fprintf(stderr, "[ERROR] Failed parsing JSON at '%s'\n", parse_end);
-      freeReplyObject(reply);
-      continue;
-    }
-
-    if (!cJSON_IsObject(value))
-      fprintf(stderr, "[ERROR] Message received is not a JSON object (%d)\n",
-              value->type);
+    CHECK_LOG(LOG_WARN, value == NULL, return, "Failed parsing JSON at '%s'",
+              parse_end);
+    CHECK_LOG(LOG_WARN, !cJSON_IsObject(value), return,
+              "Message received is not a JSON object (%d)", value->type);
 
     order_t* order = order_from_json(value);
-    if (order == NULL) {
-      fprintf(stderr, "[ERROR] Failed parsing order from JSON\n");
-      cJSON_Delete(value);
-      freeReplyObject(reply);
-      continue;
-    }
-    printf("[DEBUG] Received order: %s at %.2f for %.3f\n",
-           side_to_string(order->side), order->price / 1e9,
-           order->quantity / 1e6);
+    CHECK_LOG(LOG_WARN, order == NULL, return,
+              "Failed parsing order from JSON");
+    log_trace("Received order: %s at %.2f for %.3f",
+              side_to_string(order->side), order->price / 1e9,
+              order->quantity / 1e6);
 
-    engine_t* engine = engine_map_get(engine_map, channel->symbol);
-    if (engine == NULL) {
-      fprintf(stderr, "[ERROR] engine for symbol '%s' has not been started\n",
+    engine_t* engine = NULL;
+    for (int i = 0; i < SYMBOLS; i++)
+      if (strcmp(state.engines[i].symbol, channel->symbol) == 0)
+        engine = &state.engines[i];
+    CHECK_ERR(engine == NULL, return, "Failed finding engine for symbol: %s",
               channel->symbol);
-    }
+
     engine_new_order(engine, *order);
     orderbook_print(&engine->orderbook);
 
     cJSON_Delete(value);
     free(order);
     free(channel);
-    freeReplyObject(reply);
+  } else if (strcmp(reply->element[0]->str, "psubscribe") == 0) {
+    const char* pattern = reply->element[1]->str;
+    log_info("Subscribed to pattern: %s", pattern);
+  } else {
+    log_warn("Unexpected reply type: %s", reply->element[0]->str);
+    for (int i = 0; i < reply->elements; i++)
+      log_warn("Element[%d]: %d (%s)", i, reply->element[i]->type,
+               reply->element[i]->str);
   }
+}
+
+int main(void) {
+  log_set_level(LOG_TRACE);
+  /* log_add_fp(); */  // add log to file
+
+  // Register signal handlers
+  for (int i = 0; i < sizeof(SIGNALS) / sizeof(SIGNALS[0]); i++) {
+    struct sigaction sa;
+    sa.sa_handler = signal_handler;
+    if (sigaction(SIGNALS[i].value, &sa, NULL) == -1) {
+      log_error("Failed registering signal handler for %s", SIGNALS[i].name);
+      return 1;
+    }
+    log_info("Registered signal handler for %s", SIGNALS[i].name);
+  }
+
+  const char* symbols[SYMBOLS] = {
+      "BTCUSDT", "ETHUSDT", "BNBUSDT",   "DOGEUSDT", "ADAUSDT",  "XRPUSDT",
+      "DOTUSDT", "UNIUSDT", "BCHUSDT",   "LTCUSDT",  "LINKUSDT", "MATICUSDT",
+      "SOLUSDT", "ETCUSDT", "THETAUSDT", "ICPUSDT",  "XLMUSDT",  "VETUSDT",
+      "FILUSDT", "TRXUSDT", "EOSUSDT",
+  };
+  for (int i = 0; i < SYMBOLS; i++)
+    state.engines[i] = engine_new(symbols[i], MAX_DEPTH);
+
+  redisContext* publisher = connect_redis();
+  CHECK_ERR(publisher == NULL, return 1, "Failed connecting to Redis");
+
+  publisher_set_redis(publisher);
+  publisher_add(PUBLISHER_CONSOLE);
+  publisher_add(PUBLISHER_REDIS);
+  pthread_t publisher_thread = publisher_thread_start();
+
+  redisAsyncContext* subscriber = connect_redis_async();
+  CHECK_ERR(subscriber == NULL, return 1, "Failed connecting to Redis");
+  CHECK_ERR(redisPollAttach(subscriber) == REDIS_ERR, return 1,
+            "Failed attaching to redis: %s", subscriber->errstr);
+
+  // Subscribe to a pattern of channels
+  CHECK_ERR(redisAsyncCommand(subscriber, redis_handle_order_message, NULL,
+                              "PSUBSCRIBE %s:orders:*", "futures") == REDIS_ERR,
+            return 1, "Failed PSUBSCRIBE to '%s:orders:*'", "futures");
+
+  // Our event loop which keep polling for new messages
+  while (running)
+    CHECK_ERR(redisPollTick(subscriber, 0.1) == REDIS_ERR, continue,
+              "Failed polling redis: %s", subscriber->errstr);
 
   publisher_thread_stop(publisher_thread);
   redisFree(publisher);
-  redisFree(subscriber);
+  redisAsyncFree(subscriber);
 
   return 0;
 }

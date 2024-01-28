@@ -61,7 +61,7 @@ orderbook_t orderbook_new(const size_t max_depth) {
 void orderbook_free(orderbook_t orderbook) {
   free(orderbook.bids);
   free(orderbook.asks);
-  printf("[DEBUG] orderbook_t has been freed\n");
+  log_debug("orderbook_t has been freed");
 }
 
 void orderbook_add(orderbook_t* orderbook,
@@ -83,7 +83,7 @@ void orderbook_add(orderbook_t* orderbook,
   }
 
   if (*count >= orderbook->max_depth) {
-    printf("Failed to add to orderbook, it is full\n");
+    log_error("Failed to add to orderbook, it is full");
     return;
   }
 

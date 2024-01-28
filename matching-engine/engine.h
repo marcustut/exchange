@@ -22,21 +22,21 @@ order_t* order_from_json(cJSON* json) {
 
   cJSON* side_elem = cJSON_GetObjectItemCaseSensitive(json, "side");
   if (side_elem == NULL || !cJSON_IsString(side_elem)) {
-    fprintf(stderr, "[ERROR] side is missing or not a string\n");
+    log_trace("side is missing or not a string");
     free(order);
     return NULL;
   }
 
   order->side = side_from_string(side_elem->valuestring);
   if (order->side == -1) {
-    fprintf(stderr, "[ERROR] side '%s' is invalid\n", side_elem->valuestring);
+    log_trace("side '%s' is invalid", side_elem->valuestring);
     free(order);
     return NULL;
   }
 
   cJSON* price_elem = cJSON_GetObjectItemCaseSensitive(json, "price");
   if (price_elem == NULL || !cJSON_IsString(price_elem)) {
-    fprintf(stderr, "[ERROR] price is missing or not a string\n");
+    log_trace("price is missing or not a string");
     free(order);
     return NULL;
   }
@@ -44,7 +44,7 @@ order_t* order_from_json(cJSON* json) {
 
   cJSON* quantity_elem = cJSON_GetObjectItemCaseSensitive(json, "quantity");
   if (quantity_elem == NULL || !cJSON_IsString(quantity_elem)) {
-    fprintf(stderr, "[ERROR] quantity is missing or not a string\n");
+    log_trace("quantity is missing or not a string");
     free(order);
     return NULL;
   }
@@ -135,7 +135,7 @@ void engine_new_order(engine_t* engine, order_t order) {
 
     // the function returns 0 if there is no liquidity
     if (order.price == 0) {
-      printf("[DEBUG] No liquidity\n");
+      log_warn("Order rejected due to no liquidity");
       // TODO: Publish OrderStatus::Rejected (no liquidity)
       return;
     }
@@ -149,7 +149,7 @@ void engine_new_order(engine_t* engine, order_t order) {
 
 void engine_free(engine_t engine) {
   orderbook_free(engine.orderbook);
-  printf("[DEBUG] engine_t has been freed\n");
+  log_debug("engine_t has been freed");
 }
 
 #endif /* ENGINE_H */

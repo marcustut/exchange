@@ -3,10 +3,12 @@
 
 #include <ctype.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 #include <time.h>
+
+#include <log/log.h>
 
 #define MIN(a, b)           \
   ({                        \
@@ -23,6 +25,18 @@
   })
 
 #define CLAMP(x, min, max) (MIN(max, MAX(x, min)))
+
+#define CHECK_ERR(predicate, ret, ...) \
+  if (predicate) {                     \
+    log_error(__VA_ARGS__);            \
+    ret;                               \
+  }
+
+#define CHECK_LOG(level, predicate, ret, ...) \
+  if (predicate) {                            \
+    log_log(level, __FILE__, __LINE__, __VA_ARGS__);              \
+    ret;                                      \
+  }
 
 uint64_t timestamp_nanos() {
 #if __APPLE__
@@ -52,6 +66,7 @@ static struct {
 } SIGNALS[] = {
     SIGNAMEANDNUM(SIGINT),
     SIGNAMEANDNUM(SIGTERM),
+    SIGNAMEANDNUM(SIGPIPE),
 };
 
 const char* sig_to_string(int s) {

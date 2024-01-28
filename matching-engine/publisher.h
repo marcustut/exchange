@@ -25,9 +25,9 @@ uint64_t g_processed_messages_count = 0;
 void publish_message(message_t message) {
   if (g_messages_count == G_MESSAGES_MAX) {
     while (g_messages_count != g_processed_messages_count) {
-      printf(
-          "[WARN] resetting g_messages_count to 0: waiting for %llu remaining "
-          "messages to be handled\n",
+      log_warn(
+          "resetting g_messages_count to 0: waiting for %llu remaining "
+          "messages to be handled",
           g_messages_count - g_processed_messages_count);
       struct timespec ts = {.tv_sec = 0, .tv_nsec = 10000000};  // 10ms
       nanosleep(&ts, NULL);
@@ -37,7 +37,7 @@ void publish_message(message_t message) {
   }
 
   g_messages[g_messages_count] = message;
-  printf("[DEBUG] added message %llu to queue\n", g_messages_count);
+  log_debug("added message %llu to queue", g_messages_count);
   g_messages_count++;
 }
 
@@ -91,7 +91,7 @@ void publisher_set_redis(redisContext* context) {
 }
 
 int console_publish_message(const message_t message) {
-  printf("[%s] %s\n", message.channel, message.message);
+  log_info("[%s] %s", message.channel, message.message);
   return 0;
 }
 
@@ -109,9 +109,8 @@ void* publisher_thread() {
 
     if (offset == 0)
       continue;
-    else if (offset < 0) {
-      printf("[ERROR] offset < 0\n");
-    }
+    else if (offset < 0)
+      log_error("offset < 0");
 
     for (int i = 0; i < offset; i++)
       for (int j = 0; j < PUBLISHER.publishers_count; j++) {
@@ -132,13 +131,13 @@ void* publisher_thread() {
 pthread_t publisher_thread_start() {
   pthread_t thread;
   pthread_create(&thread, NULL, publisher_thread, NULL);
-  printf("[DEBUG] publisher thread has been started\n");
+  log_debug("Publisher thread has been started");
   return thread;
 }
 
 void publisher_thread_stop(pthread_t thread) {
   pthread_cancel(thread);
-  printf("[DEBUG] publisher thread has been stopped\n");
+  log_debug("Publisher thread has been stopped");
 }
 
 #endif /* PUBLISHER_H */
