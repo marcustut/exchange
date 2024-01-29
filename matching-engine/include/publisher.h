@@ -8,8 +8,8 @@
 #include <time.h>
 
 #include <cjson/cJSON.h>
-#include <hiredis/async.h>
 #include <hiredis/adapters/poll.h>
+#include <hiredis/async.h>
 #include <hiredis/hiredis.h>
 
 #include "evloop.h"
@@ -109,14 +109,9 @@ int console_publish_message(const message_t message) {
 int redis_publish_message(const message_t message, redisAsyncContext* context) {
   CHECK_ERR(context == NULL, return -1, "redisAsyncContext is NULL");
 
-  CHECK_ERR(redisAsyncCommand(context,
-                              NULL,
-                              NULL,
-                              "PUBLISH %s %s",
-                              message.channel,
-                              message.message) == REDIS_ERR,
-            return 1,
-            "Failed publishing message to redis");
+  CHECK_ERR(redisAsyncCommand(context, NULL, NULL, "PUBLISH %s %s",
+                              message.channel, message.message) == REDIS_ERR,
+            return 1, "Failed publishing message to redis");
 
   return 0;
 }
@@ -125,7 +120,7 @@ void* publisher_thread(void* arg) {
   thread_state_t* state = (thread_state_t*)arg;
 
   while (evloop.threads[state->id].should_stop == false) {
-    redisPollTick(PUBLISHER.redis, 0.01); // polling at 10ms
+    sleep_ns(10 * MILLISECOND);
 
     uint64_t offset = g_messages_count - g_processed_messages_count;
 

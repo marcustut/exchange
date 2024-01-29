@@ -52,3 +52,15 @@ echo "Installing log.h..."
     sudo rm -r log.c
 
 echo "Installed log.h!"
+
+echo "Installing libcyaml..."
+
+[[ ! -d $INCLUDE_DIR/cyaml ]] && \
+    git clone https://github.com/tlsa/libcyaml.git && \
+    cd libcyaml && \
+    make VARIANT=release && \
+    sudo make install VARIANT=release && \
+    cd .. && \
+    sudo rm -r libcyaml
+
+echo "Installed libcyaml!"

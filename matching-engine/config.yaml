@@ -1,0 +1,7 @@
+redis:
+  unix_socket_path: /tmp/docker/redis.sock
+  # tcp_host: localhost
+  # tcp_port: 6379
+  # user: default
+  password: redis
+log_level: trace

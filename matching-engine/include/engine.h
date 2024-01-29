@@ -21,30 +21,22 @@ order_t* order_from_json(cJSON* json) {
   order_t* order = (order_t*)malloc(sizeof(order_t));
 
   cJSON* side_elem = cJSON_GetObjectItemCaseSensitive(json, "side");
-  CHECK_LOG(LOG_TRACE,
-            side_elem == NULL || !cJSON_IsString(side_elem),
-            FREE_RETURN(NULL, order),
-            "side is missing or not a string");
+  CHECK_LOG(LOG_TRACE, side_elem == NULL || !cJSON_IsString(side_elem),
+            FREE_RETURN(NULL, order), "side is missing or not a string");
 
   enum side_e* side = side_from_string(side_elem->valuestring);
-  CHECK_LOG(LOG_TRACE,
-            side == NULL,
-            FREE_RETURN(NULL, order),
-            "side '%s' is invalid",
-            side_elem->valuestring);
+  CHECK_LOG(LOG_TRACE, side == NULL, FREE_RETURN(NULL, order),
+            "side '%s' is invalid", side_elem->valuestring);
   order->side = *side;
   free(side);
 
   cJSON* price_elem = cJSON_GetObjectItemCaseSensitive(json, "price");
-  CHECK_LOG(LOG_TRACE,
-            price_elem == NULL || !cJSON_IsString(price_elem),
-            FREE_RETURN(NULL, order, side),
-            "price is missing or not a string");
+  CHECK_LOG(LOG_TRACE, price_elem == NULL || !cJSON_IsString(price_elem),
+            FREE_RETURN(NULL, order, side), "price is missing or not a string");
   order->price = strtoimax(price_elem->valuestring, NULL, 10);
 
   cJSON* quantity_elem = cJSON_GetObjectItemCaseSensitive(json, "quantity");
-  CHECK_LOG(LOG_TRACE,
-            quantity_elem == NULL || !cJSON_IsString(quantity_elem),
+  CHECK_LOG(LOG_TRACE, quantity_elem == NULL || !cJSON_IsString(quantity_elem),
             FREE_RETURN(NULL, order, side),
             "quantity is missing or not a string");
   order->quantity =
@@ -109,12 +101,8 @@ void engine_match(engine_t* engine, order_t order) {
     // TODO: Publish O2 OrderStatus::Filled /
     // OrderStatus::PartiallyFilled)
 
-    publish_trade(engine->symbol,
-                  engine_next_trade_id(engine),
-                  order.side,
-                  levels[i].price,
-                  matched_qty,
-                  timestamp_nanos());
+    publish_trade(engine->symbol, engine_next_trade_id(engine), order.side,
+                  levels[i].price, matched_qty, timestamp_nanos());
 
     // Delete if the level is fully filled
     if (levels[i].quantity == 0) {
@@ -133,8 +121,8 @@ void engine_match(engine_t* engine, order_t order) {
 void engine_new_order(engine_t* engine, order_t order) {
   // if the order is a taker order, then use the current best price
   if (order.price == 0) {
-    order.price = orderbook_best_price_to_fill(
-        &engine->orderbook, order.side, order.quantity);
+    order.price = orderbook_best_price_to_fill(&engine->orderbook, order.side,
+                                               order.quantity);
 
     // the function returns 0 if there is no liquidity
     if (order.price == 0) {

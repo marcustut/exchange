@@ -1,8 +1,8 @@
 CC = clang
-CFLAGS = -Wall -g
+CFLAGS = -std=c99 -Wall -g -D_POSIX_C_SOURCE=200809L
 INCLUDES = -I. -I/usr/local/include
 LFLAGS = -L/usr/local/lib -Xlinker -rpath -Xlinker /usr/local/lib
-LIBS = -lhiredis -lcjson -llog
+LIBS = -lhiredis -lcjson -llog -lcyaml
 
 SRCS = main.c
 OBJS = $(SRCS:.c=.o)
@@ -16,7 +16,13 @@ $(MAIN): $(OBJS)
 .c.o:
 	$(CC) $(CFLAGS) -c $< -o $@
 
-.PHONY: valgrind run clean
+.PHONY: deps format valgrind run clean
+
+deps:
+	./install-deps.sh
+
+format:
+	find . -type f \( -iname \*.c -o -iname \*.h \) | xargs clang-format -i
 
 valgrind: clean all
 	valgrind \
@@ -25,10 +31,10 @@ valgrind: clean all
 		--track-origins=yes \
 		--verbose \
 		--log-file=vg.out \
-		./main
+		./main config.yaml
 
 run: clean all
-	./main
+	./main config.yaml
 
 clean:
 	$(RM) main *.o

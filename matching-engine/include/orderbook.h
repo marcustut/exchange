@@ -195,9 +195,7 @@ level_t* orderbook_top_n(const orderbook_t* orderbook,
 void level_print(const enum side_e side, const level_t* level) {
   int color = side == BID ? 32 /* GREEN */ : 31 /* RED */;
   // printf("%.9f (%.6f)\n", level->price / 1e9, level->quantity / 1e6);
-  printf("| \033[1;%dm%.2f (%.3f)\033[1;0m |\n",
-         color,
-         level->price / 1e9,
+  printf("| \033[1;%dm%.2f (%.3f)\033[1;0m |\n", color, level->price / 1e9,
          level->quantity / 1e6);
 }
 
