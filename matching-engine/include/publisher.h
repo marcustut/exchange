@@ -10,7 +10,9 @@
 #include <cjson/cJSON.h>
 #include <hiredis/hiredis.h>
 
+#include "evloop.h"
 #include "orderbook.h"
+#include "utils.h"
 
 typedef struct {
   char* channel;
@@ -29,15 +31,16 @@ void publish_message(message_t message) {
           "resetting g_messages_count to 0: waiting for %llu remaining "
           "messages to be handled",
           g_messages_count - g_processed_messages_count);
-      struct timespec ts = {.tv_sec = 0, .tv_nsec = 10000000};  // 10ms
-      nanosleep(&ts, NULL);
+      sleep_ns(10 * MILLISECOND);
     }
+    // NOTE: potential memory leak as we overwrite the g_messages array since we
+    //       are not freeing previously allocated messages.
     g_messages_count = 0;
     g_processed_messages_count = 0;
   }
 
   g_messages[g_messages_count] = message;
-  log_debug("added message %llu to queue", g_messages_count);
+  log_trace("added message %llu to local queue", g_messages_count);
   g_messages_count++;
 }
 
@@ -66,28 +69,34 @@ void publish_trade(const char* symbol,
   publish_message((message_t){.channel = channel, .message = message});
 }
 
+#define MAX_PUBLISHERS UINT8_MAX
 #define PUBLISHER_CONSOLE 0
 #define PUBLISHER_REDIS 1
 
 static struct {
-  int* publishers;
+  int publishers[MAX_PUBLISHERS];
   uint8_t publishers_count;
   redisContext* redis;
 } PUBLISHER = {
-    .publishers = NULL,
+    .publishers = {},
     .publishers_count = 0,
     .redis = NULL,
 };
 
 void publisher_add(const int publisher) {
+  PUBLISHER.publishers[PUBLISHER.publishers_count] = publisher;
   PUBLISHER.publishers_count++;
-  PUBLISHER.publishers =
-      realloc(PUBLISHER.publishers, sizeof(int) * PUBLISHER.publishers_count);
-  PUBLISHER.publishers[PUBLISHER.publishers_count - 1] = publisher;
 }
 
 void publisher_set_redis(redisContext* context) {
   PUBLISHER.redis = context;
+}
+
+void publisher_free() {
+  for (uint16_t i = 0; i < g_messages_count; i++) {
+    free(g_messages[i].channel);
+    free(g_messages[i].message);
+  }
 }
 
 int console_publish_message(const message_t message) {
@@ -96,14 +105,27 @@ int console_publish_message(const message_t message) {
 }
 
 int redis_publish_message(const message_t message, redisContext* context) {
-  redisCommand(context, "PUBLISH %s %s", message.channel, message.message);
+  CHECK_ERR(context == NULL, return -1, "redisContext is NULL");
+
+  redisReply* reply = (redisReply*)redisCommand(
+      context, "PUBLISH %s %s", message.channel, message.message);
+  CHECK_ERR(
+      reply == NULL,
+      {
+        freeReplyObject(reply);
+        return -1;
+      },
+      "Failed to publish message to redis: %s",
+      reply->str);
+  freeReplyObject(reply);
   return 0;
 }
 
-void* publisher_thread() {
-  while (true) {
-    struct timespec ts = {.tv_sec = 0, .tv_nsec = 10000000};  // 10ms
-    nanosleep(&ts, NULL);
+void* publisher_thread(void* arg) {
+  thread_state_t* state = (thread_state_t*)arg;
+
+  while (evloop.threads[state->id].should_stop == false) {
+    sleep_ns(10 * MILLISECOND);
 
     uint64_t offset = g_messages_count - g_processed_messages_count;
 
@@ -126,18 +148,10 @@ void* publisher_thread() {
       }
     g_processed_messages_count += offset;
   }
-}
 
-pthread_t publisher_thread_start() {
-  pthread_t thread;
-  pthread_create(&thread, NULL, publisher_thread, NULL);
-  log_debug("Publisher thread has been started");
-  return thread;
-}
+  evloop.threads[state->id].running = false;
 
-void publisher_thread_stop(pthread_t thread) {
-  pthread_cancel(thread);
-  log_debug("Publisher thread has been stopped");
+  return NULL;
 }
 
 #endif /* PUBLISHER_H */

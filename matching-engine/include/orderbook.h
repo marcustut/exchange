@@ -8,13 +8,18 @@
 
 enum side_e { BID, ASK };
 
-enum side_e side_from_string(const char* side_str) {
+enum side_e* side_from_string(const char* side_str) {
+  enum side_e* side = (enum side_e*)malloc(sizeof(enum side_e));
   if (strcmp(side_str, "BUY") == 0)
-    return BID;
+    *side = BID;
   else if (strcmp(side_str, "SELL") == 0)
-    return ASK;
-  else
-    return -1;
+    *side = ASK;
+  else {
+    free(side);
+    return NULL;
+  }
+
+  return side;
 }
 
 enum side_e side_inverse(const enum side_e side) {
@@ -61,7 +66,6 @@ orderbook_t orderbook_new(const size_t max_depth) {
 void orderbook_free(orderbook_t orderbook) {
   free(orderbook.bids);
   free(orderbook.asks);
-  log_debug("orderbook_t has been freed");
 }
 
 void orderbook_add(orderbook_t* orderbook,
@@ -191,7 +195,9 @@ level_t* orderbook_top_n(const orderbook_t* orderbook,
 void level_print(const enum side_e side, const level_t* level) {
   int color = side == BID ? 32 /* GREEN */ : 31 /* RED */;
   // printf("%.9f (%.6f)\n", level->price / 1e9, level->quantity / 1e6);
-  printf("| \033[1;%dm%.2f (%.3f)\033[1;0m |\n", color, level->price / 1e9,
+  printf("| \033[1;%dm%.2f (%.3f)\033[1;0m |\n",
+         color,
+         level->price / 1e9,
          level->quantity / 1e6);
 }
 

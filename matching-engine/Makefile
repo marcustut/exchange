@@ -16,9 +16,18 @@ $(MAIN): $(OBJS)
 .c.o:
 	$(CC) $(CFLAGS) -c $< -o $@
 
-.PHONY: run clean
+.PHONY: valgrind run clean
 
-run: all
+valgrind: clean all
+	valgrind \
+		--leak-check=full \
+		--show-leak-kinds=all \
+		--track-origins=yes \
+		--verbose \
+		--log-file=vg.out \
+		./main
+
+run: clean all
 	./main
 
 clean:

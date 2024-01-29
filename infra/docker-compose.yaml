@@ -7,6 +7,9 @@ services:
 
   redis:
     image: redis/redis-stack
+    ports:
+      - 6379:6379
+      - 8001:8001
     volumes:
       - ./redis-stack.conf:/redis-stack.conf
     volumes_from:
