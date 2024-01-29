@@ -33,37 +33,6 @@ void signal_handler(int sig) {
   evloop_stop();
 }
 
-redisContext* connect_redis() {
-  redisOptions redisOptions = {0};
-  REDIS_OPTIONS_SET_UNIX(&redisOptions, "/tmp/docker/redis.sock");
-
-  redisContext* redis = redisConnectWithOptions(&redisOptions);
-  if (redis == NULL || redis->err) {
-    if (redis) {
-      log_error("Failed connecting to Redis: %s", redis->errstr);
-      redisFree(redis);
-    } else
-      log_error("Can't allocate redis context");
-    return NULL;
-  }
-
-  redisReply* reply =
-      redisCommand(redis, "AUTH %s", "redis");  // TODO: Replace with config
-  CHECK_ERR(
-      reply->type == REDIS_REPLY_ERROR,
-      {
-        freeReplyObject(reply);
-        redisFree(redis);
-        return NULL;
-      },
-      "Failed authenticating to Redis: %s",
-      reply->str);
-
-  log_info("Connected to redis successfully");
-  freeReplyObject(reply);
-  return redis;
-}
-
 void redis_connect_callback(const redisAsyncContext* c, int status) {
   if (status != REDIS_OK) {
     log_error("Failed connecting to redis: %s", c->errstr);
@@ -218,8 +187,7 @@ void redis_handle_order_message(redisAsyncContext* c, void* r, void* privdata) {
 #define CLEANUP()                   \
   for (int i = 0; i < SYMBOLS; i++) \
     engine_free(state.engines[i]);  \
-  publisher_free();                 \
-  redisFree(publisher);
+  publisher_free();
 
 int main(void) {
   log_set_level(LOG_TRACE);
@@ -248,8 +216,16 @@ int main(void) {
   for (int i = 0; i < SYMBOLS; i++)
     state.engines[i] = engine_new(symbols[i], MAX_DEPTH);
 
-  redisContext* publisher = connect_redis();
+  redisAsyncContext* publisher = connect_redis_async();
   CHECK_ERR(publisher == NULL, return 1, "Failed connecting to Redis");
+  CHECK_ERR(
+      redisPollAttach(publisher) == REDIS_ERR,
+      {
+        CLEANUP();
+        redisAsyncFree(publisher);
+      },
+      "Failed attaching publisher to redis: %s",
+      publisher->errstr);
 
   redisAsyncContext* subscriber = connect_redis_async();
   CHECK_ERR(subscriber == NULL, CLEANUP(), "Failed connecting to Redis");
@@ -259,7 +235,7 @@ int main(void) {
         CLEANUP();
         redisAsyncFree(subscriber);
       },
-      "Failed attaching to redis: %s",
+      "Failed attaching subscriber to redis: %s",
       subscriber->errstr);
 
   // Subscribe to a pattern of channels
@@ -284,12 +260,13 @@ int main(void) {
 
   // Use the main thread to keep polling for subscriber
   while (evloop_is_running())
-    CHECK_ERR(redisPollTick(subscriber, 0.1) == REDIS_ERR,
+    CHECK_ERR(redisPollTick(subscriber, 0.01) == REDIS_ERR,  // polling at 10ms
               continue,
               "Failed polling redis: %s",
               subscriber->errstr);
 
   CLEANUP();
+  redisAsyncFree(publisher);
   redisAsyncFree(subscriber);
 
   return 0;

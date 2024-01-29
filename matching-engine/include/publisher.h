@@ -8,6 +8,8 @@
 #include <time.h>
 
 #include <cjson/cJSON.h>
+#include <hiredis/async.h>
+#include <hiredis/adapters/poll.h>
 #include <hiredis/hiredis.h>
 
 #include "evloop.h"
@@ -76,7 +78,7 @@ void publish_trade(const char* symbol,
 static struct {
   int publishers[MAX_PUBLISHERS];
   uint8_t publishers_count;
-  redisContext* redis;
+  redisAsyncContext* redis;
 } PUBLISHER = {
     .publishers = {},
     .publishers_count = 0,
@@ -88,7 +90,7 @@ void publisher_add(const int publisher) {
   PUBLISHER.publishers_count++;
 }
 
-void publisher_set_redis(redisContext* context) {
+void publisher_set_redis(redisAsyncContext* context) {
   PUBLISHER.redis = context;
 }
 
@@ -104,20 +106,18 @@ int console_publish_message(const message_t message) {
   return 0;
 }
 
-int redis_publish_message(const message_t message, redisContext* context) {
-  CHECK_ERR(context == NULL, return -1, "redisContext is NULL");
+int redis_publish_message(const message_t message, redisAsyncContext* context) {
+  CHECK_ERR(context == NULL, return -1, "redisAsyncContext is NULL");
 
-  redisReply* reply = (redisReply*)redisCommand(
-      context, "PUBLISH %s %s", message.channel, message.message);
-  CHECK_ERR(
-      reply == NULL,
-      {
-        freeReplyObject(reply);
-        return -1;
-      },
-      "Failed to publish message to redis: %s",
-      reply->str);
-  freeReplyObject(reply);
+  CHECK_ERR(redisAsyncCommand(context,
+                              NULL,
+                              NULL,
+                              "PUBLISH %s %s",
+                              message.channel,
+                              message.message) == REDIS_ERR,
+            return 1,
+            "Failed publishing message to redis");
+
   return 0;
 }
 
@@ -125,7 +125,7 @@ void* publisher_thread(void* arg) {
   thread_state_t* state = (thread_state_t*)arg;
 
   while (evloop.threads[state->id].should_stop == false) {
-    sleep_ns(10 * MILLISECOND);
+    redisPollTick(PUBLISHER.redis, 0.01); // polling at 10ms
 
     uint64_t offset = g_messages_count - g_processed_messages_count;
 
