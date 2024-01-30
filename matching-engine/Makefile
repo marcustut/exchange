@@ -1,8 +1,24 @@
 CC = clang
-CFLAGS = -std=c99 -Wall -g -D_POSIX_C_SOURCE=200809L
+CCFLAGS = -std=c99  
 INCLUDES = -I. -I/usr/local/include
 LFLAGS = -L/usr/local/lib -Xlinker -rpath -Xlinker /usr/local/lib
 LIBS = -lhiredis -lcjson -llog -lcyaml
+
+ifdef RELEASE
+	CCFLAGS += -O3
+else
+	CCFLAGS += -g3
+	CCFLAGS += -Wall -Wextra -Wconversion -Wdouble-promotion -Wno-unused-parameter -Wno-unused-function -Wno-sign-conversion
+	CCFLAGS += -fsanitize=address,undefined -fsanitize-trap
+	CCFLAGS += --system-header-prefix=/usr/local/include
+endif
+
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+	CCFLAGS += -D _POSIX_C_SOURCE=200809L
+endif
+ifeq ($(UNAME_S),Darwin)
+endif
 
 SRCS = main.c
 OBJS = $(SRCS:.c=.o)
@@ -11,10 +27,10 @@ MAIN = main
 all: $(MAIN)
 
 $(MAIN): $(OBJS) 
-	$(CC) $(CFLAGS) $(INCLUDES) -o $(MAIN) $(OBJS) $(LFLAGS) $(LIBS)
+	$(CC) $(CCFLAGS) $(INCLUDES) -o $(MAIN) $(OBJS) $(LFLAGS) $(LIBS)
 
 .c.o:
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CCFLAGS) -c $< -o $@
 
 .PHONY: deps format valgrind run clean
 
@@ -31,10 +47,10 @@ valgrind: clean all
 		--track-origins=yes \
 		--verbose \
 		--log-file=vg.out \
-		./main config.yaml
+		./$(MAIN) config.yaml
 
 run: clean all
-	./main config.yaml
+	./$(MAIN) config.yaml
 
 clean:
-	$(RM) main *.o
+	$(RM) $(MAIN) *.o

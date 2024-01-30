@@ -53,6 +53,20 @@ echo "Installing log.h..."
 
 echo "Installed log.h!"
 
+echo "Installing libyaml..."
+
+[[ ! -d $INCLUDE_DIR/yaml ]] && \
+    git clone https://github.com/yaml/libyaml.git && \
+    cd libyaml && \
+    ./bootstrap && \
+    ./configure && \
+    make && \
+    sudo make install && \
+    cd .. && \
+    sudo rm -r libyaml
+
+echo "Installed libyaml!"
+
 echo "Installing libcyaml..."
 
 [[ ! -d $INCLUDE_DIR/cyaml ]] && \

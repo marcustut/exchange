@@ -164,7 +164,7 @@ err:
 
 #define MILLISECOND 1000000
 
-void sleep_ns(__SYSCALL_SLONG_TYPE duration_ns) {
+void sleep_ns(uint64_t duration_ns) {
   struct timespec ts = {.tv_sec = 0, .tv_nsec = duration_ns};
   nanosleep(&ts, NULL);
 }
