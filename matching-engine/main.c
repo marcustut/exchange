@@ -63,6 +63,7 @@ void redis_auth_callback(redisAsyncContext* c, void* r, void* privdata) {
         return;
       },
       "Failed authenticating with redis: %s", reply->str);
+  log_info("authenticated with redis successfully");
 }
 
 redisAsyncContext* connect_redis_async(redis_config_t* redis_config) {
