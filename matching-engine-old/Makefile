@@ -1,8 +1,8 @@
 CC = clang
-CCFLAGS = -std=c99  
+CCFLAGS = -std=c99 -DLOG_USE_COLOR
 INCLUDES = -I. -I/usr/local/include
 LFLAGS = -L/usr/local/lib -Xlinker -rpath -Xlinker /usr/local/lib
-LIBS = -lhiredis -lcjson -llog -lcyaml
+LIBS = -lhiredis -lcjson -lcyaml
 
 ifdef RELEASE
 	CCFLAGS += -O3

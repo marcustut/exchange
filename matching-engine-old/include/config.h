@@ -4,8 +4,8 @@
 #include <stdlib.h>
 
 #include <cyaml/cyaml.h>
-#include <log/log.h>
 
+#include "log/log.h"
 #include "utils.h"
 
 typedef struct {

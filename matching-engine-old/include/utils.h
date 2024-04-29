@@ -9,7 +9,7 @@
 #include <string.h>
 #include <time.h>
 
-#include <log/log.h>
+#include "log/log.h"
 
 #define MIN(a, b)           \
   ({                        \

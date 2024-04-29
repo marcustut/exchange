@@ -3,7 +3,7 @@
 
 #include <pthread.h>
 
-#include <log/log.h>
+#include "log/log.h"
 
 #include "utils.h"
 
