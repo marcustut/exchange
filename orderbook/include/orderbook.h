@@ -4,44 +4,13 @@
 #include <stdint.h>
 #include <stdio.h>
 
-/**
- * Order side
- */
-enum side { SIDE_BID, SIDE_ASK };
-typedef enum side side;
-
-/**
- * Order at each limit level
- */
-struct order {
-  uint64_t order_id;
-  uint64_t price;
-  uint64_t size;
-  side side;
-
-  // orders are organised as a linked list
-  struct order* next;
-};
-typedef struct order order;
-
-struct limit {
-  uint64_t price;
-  uint64_t volume;
-  order* order_head;  // top of the orders (oldest) - first to execute
-  order* order_tail;  // end of the orders (newest) - last to execute
-
-  // limits are organised as a binary search tree
-  struct limit* left;
-  struct limit* right;
-};
-typedef struct limit limit;
+#include "limit.h"
+#include "price_limit_map.h"
 
 struct limit_tree {
-  side side;    // indicate whether bid / ask
-                //   uint32_t depth;  // the current depth (number of limits)
-  limit* best;  // the best limit level (best bid / ask)
-
-  // TODO: price_limit_map
+  side side;            // indicate whether bid / ask
+  limit* best;          // the best limit level (best bid / ask)
+  price_limit_map map;  // keeping track of price levels
 
   limit* root;  // root of the limit tree
 };

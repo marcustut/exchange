@@ -5,8 +5,9 @@
 void limit_tree_update_best(limit_tree*, limit*);
 
 orderbook orderbook_new() {
-  orderbook ob = {.bid = (limit_tree){.side = SIDE_BID},
-                  .ask = (limit_tree){.side = SIDE_ASK}};
+  orderbook ob = {
+      .bid = (limit_tree){.side = SIDE_BID, .map = price_limit_map_new()},
+      .ask = (limit_tree){.side = SIDE_ASK, .map = price_limit_map_new()}};
   return ob;
 }
 
@@ -23,11 +24,12 @@ void orderbook_limit(orderbook* ob, order order) {
       break;
   }
 
-  // TODO: Check if the price limit exists
+  // Check if the price limit exists
+  limit found = price_limit_map_get(&tree.map, order.price);
 
-  if (0)  // TODO: add order to that limit
-    ;
-  else {
+  if (!limit_not_found(found))  // TODO: add order to that limit
+  {
+  } else {
     limit limit = {.price = order.price,
                    .volume = order.size,
                    .order_head = &order,
