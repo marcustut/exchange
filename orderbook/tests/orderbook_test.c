@@ -102,3 +102,65 @@ Test(orderbook,
   cr_assert_eq(ob.bid->best->order_head->order_id, oid0);
   cr_assert_eq(ob.bid->best->order_tail->order_id, oid2);
 }
+
+Test(orderbook,
+     top_n_bids,
+     .init = orderbook_setup,
+     .fini = orderbook_teardown) {
+  for (int i = 11; i <= 20; i++)
+    orderbook_limit(&ob, (struct order){.side = SIDE_BID,
+                                        .order_id = next_order_id(),
+                                        .price = i,
+                                        .size = 1});
+
+  uint32_t n = 5;
+  struct limit* bids1 = malloc(sizeof(struct limit) * n);
+  orderbook_top_n(&ob, SIDE_BID, n, bids1);
+  for (int i = 0; i < n; i++)
+    cr_assert_eq(bids1[i].price, 20 - i);
+  free(bids1);
+
+  for (int i = 21; i <= 30; i++)
+    orderbook_limit(&ob, (struct order){.side = SIDE_BID,
+                                        .order_id = next_order_id(),
+                                        .price = i,
+                                        .size = 1});
+
+  n = 10;
+  struct limit* bids2 = malloc(sizeof(struct limit) * n);
+  orderbook_top_n(&ob, SIDE_BID, n, bids2);
+  for (int i = 0; i < n; i++)
+    cr_assert_eq(bids2[i].price, 30 - i);
+  free(bids2);
+}
+
+Test(orderbook,
+     top_n_asks,
+     .init = orderbook_setup,
+     .fini = orderbook_teardown) {
+  for (int i = 11; i <= 20; i++)
+    orderbook_limit(&ob, (struct order){.side = SIDE_ASK,
+                                        .order_id = next_order_id(),
+                                        .price = i,
+                                        .size = 1});
+
+  uint32_t n = 5;
+  struct limit* asks1 = malloc(sizeof(struct limit) * n);
+  orderbook_top_n(&ob, SIDE_ASK, n, asks1);
+  for (int i = 0; i < n; i++)
+    cr_assert_eq(asks1[i].price, 11 + i);
+  free(asks1);
+
+  for (int i = 1; i <= 10; i++)
+    orderbook_limit(&ob, (struct order){.side = SIDE_ASK,
+                                        .order_id = next_order_id(),
+                                        .price = i,
+                                        .size = 1});
+
+  n = 10;
+  struct limit* asks2 = malloc(sizeof(struct limit) * n);
+  orderbook_top_n(&ob, SIDE_ASK, n, asks2);
+  for (int i = 0; i < n; i++)
+    cr_assert_eq(asks2[i].price, 1 + i);
+  free(asks2);
+}

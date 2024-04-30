@@ -92,6 +92,24 @@ Test(limit_tree,
 }
 
 Test(limit_tree,
+     add_existing,
+     .init = limit_tree_setup_bid,
+     .fini = limit_tree_teardown) {
+  cr_assert_eq(tree.size, 0);
+
+  struct limit* limit1 = malloc(sizeof(struct limit));
+  *limit1 = (struct limit){.price = 2};
+  limit_tree_add(&tree, limit1);
+  cr_assert_eq(tree.size, 1);
+  cr_assert_eq(tree.root->price, 2);
+
+  limit_tree_add(&tree, limit1);
+  cr_assert_eq(tree.size, 1);
+  cr_assert_eq(tree.root->left, NULL);
+  cr_assert_eq(tree.root->right, NULL);
+}
+
+Test(limit_tree,
      min,
      .init = limit_tree_setup_bid,
      .fini = limit_tree_teardown) {
