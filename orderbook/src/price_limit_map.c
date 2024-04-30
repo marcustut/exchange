@@ -4,46 +4,48 @@
 #include <string.h>
 #include <time.h>
 
-size_t hash(price_limit_map* map, uint64_t key);
-int probe(price_limit_map* map, uint64_t key);
-void resize(price_limit_map* map, uint32_t capacity);
+size_t hash(struct price_limit_map* map, uint64_t key);
+int probe(struct price_limit_map* map, uint64_t key);
+void resize(struct price_limit_map* map, uint32_t capacity);
 
-price_limit_map price_limit_map_with_capacity(uint32_t capacity) {
+struct price_limit_map price_limit_map_with_capacity(uint32_t capacity) {
   srand(time(NULL));
   uint32_t prime = DEFAULT_PRIME_FACTOR;
 
   // initialise the table to be empty
-  entry* table = malloc(sizeof(entry) * capacity);
+  struct entry* table = malloc(sizeof(struct entry) * capacity);
   for (int i = 0; i < capacity; i++)
     table[i].key = DEFAULT_EMPTY_KEY;
 
-  price_limit_map map = {.max_load_factor = DEFAULT_MAX_LOAD_FACTOR,
-                         .capacity = capacity,
-                         .prime = prime,
-                         // required to make the bound one less and +1 to make
-                         // sure scale % prime != 0
-                         .scale = (rand() % (prime - 1)) + 1,
-                         .shift = rand() % prime,
-                         .table = table};
+  struct price_limit_map map = {.max_load_factor = DEFAULT_MAX_LOAD_FACTOR,
+                                .capacity = capacity,
+                                .prime = prime,
+                                // required to make the bound one less and +1 to
+                                // make sure scale % prime != 0
+                                .scale = (rand() % (prime - 1)) + 1,
+                                .shift = rand() % prime,
+                                .table = table};
   return map;
 }
 
-price_limit_map price_limit_map_new() {
+struct price_limit_map price_limit_map_new() {
   return price_limit_map_with_capacity(DEFAULT_CAPACITY);
 }
 
-void price_limit_map_free(price_limit_map* map) {
+void price_limit_map_free(struct price_limit_map* map) {
   free(map->table);
 }
 
-limit price_limit_map_put(price_limit_map* map, uint64_t price, limit limit) {
+struct limit price_limit_map_put(struct price_limit_map* map,
+                                 uint64_t price,
+                                 struct limit* limit) {
   int i = probe(map, price);
   if (i >= 0) {  // found existing, update
-    struct limit previous_value = map->table[i].value;
-    map->table[i] = (entry){.key = price, .value = limit};
+    struct limit previous_value = *map->table[i].value;
+    map->table[i] = (struct entry){.key = price, .value = limit};
     return previous_value;
   }
-  map->table[-(i + 1)] = (entry){.key = price, .value = limit};
+  map->table[-(i + 1)] = (struct entry){.key = price, .value = limit};
   map->size++;  // increment the current size
 
   // Since linear probing works best when the load factor is low, we resize
@@ -54,18 +56,29 @@ limit price_limit_map_put(price_limit_map* map, uint64_t price, limit limit) {
 
   return limit_default();
 }
-limit price_limit_map_get(price_limit_map* map, uint64_t price) {
+
+struct limit price_limit_map_get(struct price_limit_map* map, uint64_t price) {
   int i = probe(map, price);
   if (i < 0)  // unable to find the key
     return limit_default();
+  return *map->table[i].value;
+}
+
+struct limit* price_limit_map_get_mut(struct price_limit_map* map,
+                                      uint64_t price) {
+  int i = probe(map, price);
+  if (i < 0)  // unable to find the key
+    return NULL;
   return map->table[i].value;
 }
-limit price_limit_map_remove(price_limit_map* map, uint64_t price) {
+
+struct limit price_limit_map_remove(struct price_limit_map* map,
+                                    uint64_t price) {
   int i = probe(map, price);
   if (i < 0)  // not able to find the element to remove
     return limit_default();
-  struct limit removed = map->table[i].value;
-  map->table[i] = (entry){.key = DEFAULT_EMPTY_KEY};
+  struct limit removed = *map->table[i].value;
+  map->table[i] = (struct entry){.key = DEFAULT_EMPTY_KEY};
   map->size--;
   return removed;
 }
@@ -95,7 +108,7 @@ limit price_limit_map_remove(price_limit_map* map, uint64_t price) {
  *
  * hash: ((ka + b) mod p) mod N
  */
-size_t hash(price_limit_map* map, uint64_t key) {
+size_t hash(struct price_limit_map* map, uint64_t key) {
   return (abs(key * map->scale + map->shift) % map->prime) % map->capacity;
 }
 
@@ -105,7 +118,7 @@ size_t hash(price_limit_map* map, uint64_t key) {
  * the index. Otherwise, it returns a negative integer indicating a free slot in
  * the table.
  */
-int probe(price_limit_map* map, uint64_t key) {
+int probe(struct price_limit_map* map, uint64_t key) {
   int free = -1;
   size_t _hash = hash(map, key);
   size_t i = _hash;
@@ -123,10 +136,10 @@ int probe(price_limit_map* map, uint64_t key) {
   return -(free + 1);
 }
 
-void resize(price_limit_map* map, uint32_t capacity) {
+void resize(struct price_limit_map* map, uint32_t capacity) {
   // Make a copy of the existing table
-  entry* temp = malloc(sizeof(entry) * map->capacity);
-  memcpy(temp, map->table, sizeof(entry) * map->capacity);
+  struct entry* temp = malloc(sizeof(struct entry) * map->capacity);
+  memcpy(temp, map->table, sizeof(struct entry) * map->capacity);
   free(map->table);
 
   // Replace the old capacity with new capacity
@@ -134,8 +147,8 @@ void resize(price_limit_map* map, uint32_t capacity) {
   map->capacity = capacity;
 
   // Copy back the items in temp into the new
-  map->table = malloc(sizeof(entry) * capacity);
-  memcpy(map->table, temp, sizeof(entry) * old_capacity);
+  map->table = malloc(sizeof(struct entry) * capacity);
+  memcpy(map->table, temp, sizeof(struct entry) * old_capacity);
   for (int i = old_capacity; i < capacity; i++)
     map->table[i].key = DEFAULT_EMPTY_KEY;
 

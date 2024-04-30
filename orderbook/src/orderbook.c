@@ -1,65 +1,58 @@
 #include "orderbook.h"
 
-#include <stdio.h>
+#include <stdlib.h>
 
-void limit_tree_update_best(limit_tree*, limit*);
-
-orderbook orderbook_new() {
-  orderbook ob = {
-      .bid = (limit_tree){.side = SIDE_BID, .map = price_limit_map_new()},
-      .ask = (limit_tree){.side = SIDE_ASK, .map = price_limit_map_new()}};
-  return ob;
+struct orderbook orderbook_new() {
+  struct limit_tree* bid = malloc(sizeof(struct limit_tree));
+  struct limit_tree* ask = malloc(sizeof(struct limit_tree));
+  *bid = limit_tree_new(SIDE_BID);
+  *ask = limit_tree_new(SIDE_ASK);
+  return (struct orderbook){.bid = bid, .ask = ask};
 }
 
-void orderbook_limit(orderbook* ob, order order) {
-  printf("orderbook_limit\n");
+void orderbook_free(struct orderbook* ob) {
+  limit_tree_free(ob->bid);
+  limit_tree_free(ob->ask);
+  free(ob->bid);
+  free(ob->ask);
+}
 
-  limit_tree tree;
-  switch (order.side) {
+void orderbook_limit(struct orderbook* ob, struct order _order) {
+  struct limit_tree* tree;
+  switch (_order.side) {
     case SIDE_BID:
       tree = ob->bid;
       break;
     case SIDE_ASK:
       tree = ob->ask;
       break;
+    default:
+      fprintf(stderr, "received unrecognised order side");
+      exit(1);
   }
 
+  // Make a copy of the order internally
+  struct order* order = malloc(sizeof(struct order));
+  *order = _order;
+
   // Check if the price limit exists
-  limit found = price_limit_map_get(&tree.map, order.price);
+  struct limit* found = price_limit_map_get_mut(&tree->map, order->price);
 
-  if (!limit_not_found(found))  // TODO: add order to that limit
-  {
+  if (found != NULL && found->order_tail != NULL) {  // limit exist
+    // append to the queue
+    found->order_tail->next = order;
+    found->order_tail = order;
   } else {
-    limit limit = {.price = order.price,
-                   .volume = order.size,
-                   .order_head = &order,
-                   .order_tail = &order};
-    // TODO: add limit to tree
-    // TODO: add limit to price_limit_map
+    struct limit* limit = malloc(sizeof(struct limit));
+    *limit = (struct limit){.price = order->price,
+                            .volume = order->size,
+                            .order_head = order,
+                            .order_tail = order};
 
-    // update best limit
-    limit_tree_update_best(&tree, &limit);
+    limit_tree_add(tree, limit);                           // add limit to tree
+    price_limit_map_put(&tree->map, order->price, limit);  // add limit to map
+    limit_tree_update_best(tree, limit);                   // update best limit
   }
 }
 
 void orderbook_market() {}
-
-void limit_tree_update_best(limit_tree* tree, limit* limit) {
-  printf("limit_tree_update_best\n");
-
-  if (tree->best == NULL) {
-    tree->best = limit;
-    return;
-  }
-
-  switch (tree->side) {
-    case SIDE_BID:
-      if (limit->price > tree->best->price)
-        tree->best = limit;
-      break;
-    case SIDE_ASK:
-      if (limit->price < tree->best->price)
-        tree->best = limit;
-      break;
-  }
-}

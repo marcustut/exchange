@@ -1,9 +1,19 @@
 #include "limit.h"
 
-limit limit_default() {
-  return (limit){};
+#include <stdlib.h>
+
+void limit_free(struct limit* limit) {
+  // free the order queue (a linked list)
+  if (limit->order_head != NULL) {
+    struct order* curr = limit->order_head;
+    while (curr != NULL) {
+      struct order* next = curr->next;
+      free(curr);
+      curr = next;
+    }
+  }
 }
 
-bool limit_not_found(limit result) {
-  return result.price == limit_default().price;
+struct limit limit_default() {
+  return (struct limit){};
 }
