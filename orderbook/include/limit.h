@@ -30,6 +30,7 @@ struct limit {
   uint64_t volume;
   struct order* order_head;  // top of the orders (oldest) - first to execute
   struct order* order_tail;  // end of the orders (newest) - last to execute
+  uint64_t order_count;      // total orders in the limit
 
   // limits are organised as a binary search tree
   struct limit* left;

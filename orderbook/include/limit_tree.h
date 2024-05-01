@@ -17,6 +17,7 @@ struct limit_tree limit_tree_new(enum side side);
 void limit_tree_free(struct limit_tree* tree);
 void limit_tree_update_best(struct limit_tree*, struct limit*);
 void limit_tree_add(struct limit_tree*, struct limit*);
+void limit_tree_remove(struct limit_tree*, struct limit*);
 struct limit* limit_tree_min(struct limit_tree*);
 struct limit* limit_tree_max(struct limit_tree*);
 

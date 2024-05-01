@@ -82,10 +82,7 @@ struct limit* _limit_tree_add(struct limit* node, struct limit* limit) {
 }
 
 void limit_tree_add(struct limit_tree* tree, struct limit* limit) {
-  if (tree == NULL)
-    return;
-
-  if (tree->root == NULL) {
+  if (tree->root == NULL) {  // tree don't have limits yet
     tree->root = limit;
     tree->size++;
     return;
@@ -99,6 +96,37 @@ void limit_tree_add(struct limit_tree* tree, struct limit* limit) {
     return;
 
   tree->size++;
+}
+
+struct limit* _limit_tree_remove(struct limit* node, struct limit* limit) {
+  if (node == NULL)
+    return node;
+
+  if (limit->price > node->price)  // traverse right
+    node->right = _limit_tree_remove(node->right, limit);
+  else if (limit->price < node->price)  // traverse left
+    node->left = _limit_tree_remove(node->left, limit);
+  else {  // found
+    // Case 1: only one child or no child
+    if (node->left == NULL)
+      return node->right;
+    else if (node->right == NULL)
+      return node->left;
+
+    // Case 2: has both left and right child (replace by left)
+    struct limit* left = node->left;
+    struct limit* right = node->right;
+    node = left;
+    node->right = right;
+  }
+
+  return node;
+}
+
+void limit_tree_remove(struct limit_tree* tree, struct limit* limit) {
+  tree->root = _limit_tree_remove(tree->root, limit);
+  free(limit);
+  tree->size--;
 }
 
 struct limit* limit_tree_min(struct limit_tree* tree) {

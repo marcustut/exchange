@@ -2,6 +2,22 @@
 
 #include <stdlib.h>
 
+#define MIN(a, b)           \
+  ({                        \
+    __typeof__(a) _a = (a); \
+    __typeof__(b) _b = (b); \
+    _a < _b ? _a : _b;      \
+  })
+
+#define MAX(a, b)           \
+  ({                        \
+    __typeof__(a) _a = (a); \
+    __typeof__(b) _b = (b); \
+    _a > _b ? _a : _b;      \
+  })
+
+#define CLAMP(x, min, max) (MIN(max, MAX(x, min)))
+
 struct orderbook orderbook_new() {
   struct limit_tree* bid = malloc(sizeof(struct limit_tree));
   struct limit_tree* ask = malloc(sizeof(struct limit_tree));
@@ -41,13 +57,15 @@ void orderbook_limit(struct orderbook* ob, struct order _order) {
   if (found != NULL && found->order_tail != NULL) {
     found->order_tail->next = order;  // append order to queue
     found->order_tail = order;        // make order last in queue
+    found->order_count++;             // increment order count
   } else {
     // Make a new limit on the heap, will be deallocated in `limit_tree_free()`
     struct limit* limit = malloc(sizeof(struct limit));
     *limit = (struct limit){.price = order->price,
                             .volume = order->size,
                             .order_head = order,
-                            .order_tail = order};
+                            .order_tail = order,
+                            .order_count = 1};
 
     limit_tree_add(tree, limit);                           // add limit to tree
     price_limit_map_put(&tree->map, order->price, limit);  // add limit to map
@@ -69,6 +87,27 @@ void orderbook_market(struct orderbook* ob,
     default:
       fprintf(stderr, "received unrecognised order side");
       exit(1);
+  }
+
+  while (tree->best != NULL && size > 0) {
+    if (tree->best->order_head == NULL) {  // find the next best
+      limit_tree_update_best(tree, NULL);
+      if (tree->best == NULL ||
+          tree->best->order_head == NULL)  // no more liquidity
+        return;
+    }
+
+    struct order* match = tree->best->order_head;  // always match top in queue
+    uint64_t fill_size = MIN(size, match->size);   // fill only available size
+
+    // fill order
+    match->size -= fill_size;
+    size -= fill_size;
+
+    // order is fully filled and limit has no other orders
+    if (match->size == 0 && tree->best->order_count == 1) {
+      // continue;
+    }
   }
 }
 
