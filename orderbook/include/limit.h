@@ -17,8 +17,10 @@ struct order {
   uint64_t price;
   uint64_t size;
   enum side side;
+  struct limit* limit;  // backlink to the containing limit
 
   // orders are organised as a linked list
+  struct order* prev;
   struct order* next;
 };
 

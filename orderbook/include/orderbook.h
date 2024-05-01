@@ -6,13 +6,13 @@
 
 #include "limit.h"
 #include "limit_tree.h"
+#include "order_metadata_map.h"
 #include "price_limit_map.h"
 
 struct orderbook {
   struct limit_tree* bid;
   struct limit_tree* ask;
-
-  // order_metadata
+  struct order_metadata_map map;
 };
 
 /**
@@ -27,16 +27,26 @@ struct orderbook orderbook_new();
 void orderbook_free(struct orderbook* ob);
 
 /**
- * Place a limit order. Always a maker order (adding volume to the book)
+ * Place a limit order. Always a maker order (adding volume to the book).
  */
 void orderbook_limit(struct orderbook* ob, struct order order);
 
 /**
- * Place a market order. Always a taker order (reducing volume from the book)
+ * Place a market order. Always a taker order (reducing volume from the book).
+ *
+ * Note that the function returns a `uint64_t` representing the reamining size
+ * that has not been filled. If the market request has been fully filled then
+ * `0` will be returned.
  */
 uint64_t orderbook_market(struct orderbook* ob,
                           const enum side side,
                           uint64_t size);
+
+void orderbook_cancel(struct orderbook* ob, const uint64_t order_id);
+
+// void orderbook_amend_size(struct orderbook* ob,
+//                           const uint64_t order_id,
+//                           uint64_t size);
 
 /**
  * Read the top N bids or asks from the book. Note that the limits will be

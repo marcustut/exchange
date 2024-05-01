@@ -4,16 +4,17 @@
 #include <string.h>
 #include <time.h>
 
-size_t hash(struct price_limit_map* map, uint64_t key);
-int probe(struct price_limit_map* map, uint64_t key);
-void resize(struct price_limit_map* map, uint32_t capacity);
+size_t _price_limit_map_hash(struct price_limit_map* map, uint64_t key);
+int _price_limit_map_probe(struct price_limit_map* map, uint64_t key);
+void _price_limit_map_resize(struct price_limit_map* map, uint32_t capacity);
 
 struct price_limit_map price_limit_map_with_capacity(uint32_t capacity) {
   srand(time(NULL));
   uint32_t prime = DEFAULT_PRIME_FACTOR;
 
   // initialise the table to be empty
-  struct entry* table = malloc(sizeof(struct entry) * capacity);
+  struct price_limit_map_entry* table =
+      malloc(sizeof(struct price_limit_map_entry) * capacity);
   for (int i = 0; i < capacity; i++)
     table[i].key = DEFAULT_EMPTY_KEY;
 
@@ -39,26 +40,29 @@ void price_limit_map_free(struct price_limit_map* map) {
 struct limit price_limit_map_put(struct price_limit_map* map,
                                  uint64_t price,
                                  struct limit* limit) {
-  int i = probe(map, price);
+  int i = _price_limit_map_probe(map, price);
   if (i >= 0) {  // found existing, update
     struct limit previous_value = *map->table[i].value;
-    map->table[i] = (struct entry){.key = price, .value = limit};
+    map->table[i] =
+        (struct price_limit_map_entry){.key = price, .value = limit};
     return previous_value;
   }
-  map->table[-(i + 1)] = (struct entry){.key = price, .value = limit};
+  map->table[-(i + 1)] =
+      (struct price_limit_map_entry){.key = price, .value = limit};
   map->size++;  // increment the current size
 
-  // Since linear probing works best when the load factor is low, we resize
-  // the table once the load factor exceeds this specified limit.
+  // Since linear probing works best when the load factor is low, we
+  // _price_limit_map_resize the table once the load factor exceeds this
+  // specified limit.
   uint32_t load_factor = (map->size * 100) / map->capacity;
   if (load_factor > map->max_load_factor)
-    resize(map, 2 * map->capacity - 1);
+    _price_limit_map_resize(map, 2 * map->capacity - 1);
 
   return limit_default();
 }
 
 struct limit price_limit_map_get(struct price_limit_map* map, uint64_t price) {
-  int i = probe(map, price);
+  int i = _price_limit_map_probe(map, price);
   if (i < 0)  // unable to find the key
     return limit_default();
   return *map->table[i].value;
@@ -66,26 +70,26 @@ struct limit price_limit_map_get(struct price_limit_map* map, uint64_t price) {
 
 struct limit* price_limit_map_get_mut(struct price_limit_map* map,
                                       uint64_t price) {
-  int i = probe(map, price);
+  int i = _price_limit_map_probe(map, price);
   if (i < 0)  // unable to find the key
     return NULL;
   return map->table[i].value;
 }
 
-struct limit price_limit_map_remove(struct price_limit_map* map,
-                                    uint64_t price) {
-  int i = probe(map, price);
+struct limit* price_limit_map_remove(struct price_limit_map* map,
+                                     uint64_t price) {
+  int i = _price_limit_map_probe(map, price);
   if (i < 0)  // not able to find the element to remove
-    return limit_default();
-  struct limit removed = *map->table[i].value;
-  map->table[i] = (struct entry){.key = DEFAULT_EMPTY_KEY};
+    return NULL;
+  struct limit* removed = map->table[i].value;
+  map->table[i] = (struct price_limit_map_entry){.key = DEFAULT_EMPTY_KEY};
   map->size--;
   return removed;
 }
 
 /**
- * Hash function to get the index of the hash table given a key.
- * Note that this function uses a combination of the MAD
+ * Hash function to get the index of the _price_limit_map_hash table given a
+ * key. Note that this function uses a combination of the MAD
  * (Multiply-Add-and-Divide) and division compression method:
  *
  * MAD: (ka + b) mod p
@@ -106,9 +110,9 @@ struct limit price_limit_map_remove(struct price_limit_map* map,
  * number but our capacity is not necessarily a prime number. To summarize,
  * the function is described as:
  *
- * hash: ((ka + b) mod p) mod N
+ * _price_limit_map_hash: ((ka + b) mod p) mod N
  */
-size_t hash(struct price_limit_map* map, uint64_t key) {
+size_t _price_limit_map_hash(struct price_limit_map* map, uint64_t key) {
   return (abs(key * map->scale + map->shift) % map->prime) % map->capacity;
 }
 
@@ -118,9 +122,9 @@ size_t hash(struct price_limit_map* map, uint64_t key) {
  * the index. Otherwise, it returns a negative integer indicating a free slot in
  * the table.
  */
-int probe(struct price_limit_map* map, uint64_t key) {
+int _price_limit_map_probe(struct price_limit_map* map, uint64_t key) {
   int free = -1;
-  size_t _hash = hash(map, key);
+  size_t _hash = _price_limit_map_hash(map, key);
   size_t i = _hash;
 
   do {
@@ -136,10 +140,12 @@ int probe(struct price_limit_map* map, uint64_t key) {
   return -(free + 1);
 }
 
-void resize(struct price_limit_map* map, uint32_t capacity) {
+void _price_limit_map_resize(struct price_limit_map* map, uint32_t capacity) {
   // Make a copy of the existing table
-  struct entry* temp = malloc(sizeof(struct entry) * map->capacity);
-  memcpy(temp, map->table, sizeof(struct entry) * map->capacity);
+  struct price_limit_map_entry* temp =
+      malloc(sizeof(struct price_limit_map_entry) * map->capacity);
+  memcpy(temp, map->table,
+         sizeof(struct price_limit_map_entry) * map->capacity);
   free(map->table);
 
   // Replace the old capacity with new capacity
@@ -147,8 +153,8 @@ void resize(struct price_limit_map* map, uint32_t capacity) {
   map->capacity = capacity;
 
   // Copy back the items in temp into the new
-  map->table = malloc(sizeof(struct entry) * capacity);
-  memcpy(map->table, temp, sizeof(struct entry) * old_capacity);
+  map->table = malloc(sizeof(struct price_limit_map_entry) * capacity);
+  memcpy(map->table, temp, sizeof(struct price_limit_map_entry) * old_capacity);
   for (int i = old_capacity; i < capacity; i++)
     map->table[i].key = DEFAULT_EMPTY_KEY;
 
