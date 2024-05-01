@@ -196,7 +196,10 @@ Test(orderbook,
   cr_assert_eq(ob.ask->best, NULL);
 }
 
-Test(orderbook, cancel, .init = orderbook_setup, .fini = orderbook_teardown) {
+Test(orderbook,
+     cancel_exist,
+     .init = orderbook_setup,
+     .fini = orderbook_teardown) {
 #define N 5
   struct order orders[N] = {
       (struct order){.side = SIDE_BID,
@@ -229,14 +232,14 @@ Test(orderbook, cancel, .init = orderbook_setup, .fini = orderbook_teardown) {
   cr_assert_eq(ob.bid->best->order_count, 1);
   cr_assert_eq(ob.bid->size, 3);
 
-  orderbook_cancel(&ob, orders[4].order_id);
+  cr_assert_eq(orderbook_cancel(&ob, orders[4].order_id), OBERR_OKAY);
 
   cr_assert_eq(ob.bid->best->price, 11);
   cr_assert_eq(ob.bid->best->volume, 2);
   cr_assert_eq(ob.bid->best->order_count, 1);
   cr_assert_eq(ob.bid->size, 2);
 
-  orderbook_cancel(&ob, orders[3].order_id);
+  cr_assert_eq(orderbook_cancel(&ob, orders[3].order_id), OBERR_OKAY);
 
   cr_assert_eq(ob.bid->best->price, 10);
   cr_assert_eq(ob.bid->best->volume, 6);
@@ -246,7 +249,8 @@ Test(orderbook, cancel, .init = orderbook_setup, .fini = orderbook_teardown) {
   cr_assert_eq(ob.bid->best->order_head->next->next->size, 1);
   cr_assert_eq(ob.bid->size, 1);
 
-  orderbook_cancel(&ob, orders[0].order_id);  // cancel order head
+  cr_assert_eq(orderbook_cancel(&ob, orders[0].order_id),
+               OBERR_OKAY);  // cancel order head
 
   cr_assert_eq(ob.bid->best->price, 10);
   cr_assert_eq(ob.bid->best->volume, 3);
@@ -255,7 +259,8 @@ Test(orderbook, cancel, .init = orderbook_setup, .fini = orderbook_teardown) {
   cr_assert_eq(ob.bid->best->order_head->next->size, 1);
   cr_assert_eq(ob.bid->size, 1);
 
-  orderbook_cancel(&ob, orders[2].order_id);  // cancel order tail
+  cr_assert_eq(orderbook_cancel(&ob, orders[2].order_id),
+               OBERR_OKAY);  // cancel order tail
 
   cr_assert_eq(ob.bid->best->price, 10);
   cr_assert_eq(ob.bid->best->volume, 2);
@@ -263,10 +268,65 @@ Test(orderbook, cancel, .init = orderbook_setup, .fini = orderbook_teardown) {
   cr_assert_eq(ob.bid->best->order_head->size, 2);
   cr_assert_eq(ob.bid->size, 1);
 
-  orderbook_cancel(&ob, orders[1].order_id);  // cancel last order
+  cr_assert_eq(orderbook_cancel(&ob, orders[1].order_id),
+               OBERR_OKAY);  // cancel last order
 
   cr_assert_eq(ob.bid->best, NULL);
   cr_assert_eq(ob.bid->size, 0);
+}
+
+Test(orderbook,
+     cancel_not_exist,
+     .init = orderbook_setup,
+     .fini = orderbook_teardown) {
+  cr_assert_eq(orderbook_cancel(&ob, 1), OBERR_ORDER_NOT_FOUND);
+}
+
+Test(orderbook,
+     amend_size_exist,
+     .init = orderbook_setup,
+     .fini = orderbook_teardown) {
+  uint64_t oid = next_order_id();
+  orderbook_limit(
+      &ob, (struct order){
+               .side = SIDE_BID, .order_id = oid, .price = 10, .size = 3});
+
+  cr_assert_eq(ob.bid->best->price, 10);
+  cr_assert_eq(ob.bid->best->volume, 3);
+  cr_assert_eq(ob.bid->best->order_head->size, 3);
+
+  cr_assert_eq(orderbook_amend_size(&ob, oid, 5), OBERR_OKAY);
+
+  cr_assert_eq(ob.bid->best->price, 10);
+  cr_assert_eq(ob.bid->best->volume, 5);
+  cr_assert_eq(ob.bid->best->order_head->size, 5);
+}
+
+Test(orderbook,
+     amend_size_invalid_size,
+     .init = orderbook_setup,
+     .fini = orderbook_teardown) {
+  uint64_t oid = next_order_id();
+  orderbook_limit(
+      &ob, (struct order){
+               .side = SIDE_BID, .order_id = oid, .price = 10, .size = 3});
+
+  cr_assert_eq(ob.bid->best->price, 10);
+  cr_assert_eq(ob.bid->best->volume, 3);
+  cr_assert_eq(ob.bid->best->order_head->size, 3);
+
+  cr_assert_eq(orderbook_amend_size(&ob, oid, 0), OBERR_INVALID_ORDER_SIZE);
+
+  cr_assert_eq(ob.bid->best->price, 10);
+  cr_assert_eq(ob.bid->best->volume, 3);
+  cr_assert_eq(ob.bid->best->order_head->size, 3);
+}
+
+Test(orderbook,
+     amend_size_not_exist,
+     .init = orderbook_setup,
+     .fini = orderbook_teardown) {
+  cr_assert_eq(orderbook_amend_size(&ob, 1, 5), OBERR_ORDER_NOT_FOUND);
 }
 
 Test(orderbook,

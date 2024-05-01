@@ -161,8 +161,14 @@ uint64_t orderbook_market(struct orderbook* ob,
   return size;
 }
 
-void orderbook_cancel(struct orderbook* ob, const uint64_t order_id) {
-  struct order* order = order_metadata_map_get_mut(&ob->map, order_id)->order;
+enum orderbook_error orderbook_cancel(struct orderbook* ob,
+                                      const uint64_t order_id) {
+  struct order_metadata* order_metadata =
+      order_metadata_map_get_mut(&ob->map, order_id);
+  if (order_metadata == NULL)
+    return OBERR_ORDER_NOT_FOUND;
+
+  struct order* order = order_metadata->order;
   struct limit* limit = order->limit;
 
   struct limit_tree* tree;
@@ -207,6 +213,27 @@ void orderbook_cancel(struct orderbook* ob, const uint64_t order_id) {
   }
 
   free(order_metadata_map_remove(&ob->map, order_id));  // remove order metadata
+  return OBERR_OKAY;
+}
+
+enum orderbook_error orderbook_amend_size(struct orderbook* ob,
+                                          const uint64_t order_id,
+                                          uint64_t size) {
+  if (size <= 0)
+    return OBERR_INVALID_ORDER_SIZE;
+
+  struct order_metadata* order_metadata =
+      order_metadata_map_get_mut(&ob->map, order_id);
+  if (order_metadata == NULL)
+    return OBERR_ORDER_NOT_FOUND;
+
+  struct order* order = order_metadata->order;
+  struct limit* limit = order->limit;
+
+  limit->volume += size - order->size;
+  order->size = size;
+
+  return OBERR_OKAY;
 }
 
 /**

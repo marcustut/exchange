@@ -9,6 +9,12 @@
 #include "order_metadata_map.h"
 #include "price_limit_map.h"
 
+enum orderbook_error {
+  OBERR_OKAY = 0,                 // Successful
+  OBERR_ORDER_NOT_FOUND = -1,     // Order is not found
+  OBERR_INVALID_ORDER_SIZE = -2,  // Order size <= 0
+};
+
 struct orderbook {
   struct limit_tree* bid;
   struct limit_tree* ask;
@@ -42,11 +48,25 @@ uint64_t orderbook_market(struct orderbook* ob,
                           const enum side side,
                           uint64_t size);
 
-void orderbook_cancel(struct orderbook* ob, const uint64_t order_id);
+/**
+ * Cancel a limit order.
+ *
+ * `OBERR_OKAY` - successful operation.
+ * `OBERR_ORDER_NOT_FOUND` - order id does not exist.
+ */
+enum orderbook_error orderbook_cancel(struct orderbook* ob,
+                                      const uint64_t order_id);
 
-// void orderbook_amend_size(struct orderbook* ob,
-//                           const uint64_t order_id,
-//                           uint64_t size);
+/**
+ * Amend a limit order.
+ *
+ * `OBERR_OKAY` - successful operation.
+ * `OBERR_ORDER_NOT_FOUND` - order id does not exist.
+ * `OBERR_INVALID_ORDER_SIZE` - new order size <= 0
+ */
+enum orderbook_error orderbook_amend_size(struct orderbook* ob,
+                                          const uint64_t order_id,
+                                          uint64_t size);
 
 /**
  * Read the top N bids or asks from the book. Note that the limits will be
