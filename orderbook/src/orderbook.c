@@ -58,6 +58,7 @@ void orderbook_limit(struct orderbook* ob, struct order _order) {
     found->order_tail->next = order;  // append order to queue
     found->order_tail = order;        // make order last in queue
     found->order_count++;             // increment order count
+    found->volume += order->size;     // increment limit volume
   } else {
     // Make a new limit on the heap, will be deallocated in `limit_tree_free()`
     struct limit* limit = malloc(sizeof(struct limit));
@@ -79,10 +80,10 @@ void orderbook_market(struct orderbook* ob,
   struct limit_tree* tree;
   switch (side) {
     case SIDE_BID:
-      tree = ob->bid;
+      tree = ob->ask;
       break;
     case SIDE_ASK:
-      tree = ob->ask;
+      tree = ob->bid;
       break;
     default:
       fprintf(stderr, "received unrecognised order side");
@@ -90,10 +91,9 @@ void orderbook_market(struct orderbook* ob,
   }
 
   while (tree->best != NULL && size > 0) {
-    if (tree->best->order_head == NULL) {  // find the next best
-      limit_tree_update_best(tree, NULL);
-      if (tree->best == NULL ||
-          tree->best->order_head == NULL)  // no more liquidity
+    if (tree->best->order_head == NULL) {
+      limit_tree_update_best(tree, NULL);  // find next best
+      if (tree->best == NULL || tree->best->order_head == NULL)  // no liquidity
         return;
     }
 
@@ -106,9 +106,37 @@ void orderbook_market(struct orderbook* ob,
 
     // order is fully filled and limit has no other orders
     if (match->size == 0 && tree->best->order_count == 1) {
-      // continue;
+      // TODO: emit event
+      printf("%ld of order %ld is fully filled at %ld.\n", fill_size,
+             match->order_id, match->price);
+
+      limit_tree_remove(tree, tree->best);  // remove the limit
+      limit_tree_update_best(tree, NULL);   // find next best
+      continue;
     }
+
+    // order is fully filled but limit still has other orders
+    if (match->size == 0) {
+      // TODO: emit event
+      printf("%ld of order %ld is fully filled at %ld.\n", fill_size,
+             match->order_id, match->price);
+
+      tree->best->order_head = match->next;  // replace top with next in queue
+      free(match);                           // free filled order
+      tree->best->order_count--;             // decrement limit order count
+
+    } else {  // order is partially filled
+      // TODO: emit event
+      printf("%ld of order %ld is partially filled at %ld.\n", fill_size,
+             match->order_id, match->price);
+    }
+
+    tree->best->volume -= fill_size;  // update limit volume
   }
+
+  // TODO: emit event
+  // printf("%ld of %ld is fully filled at %ld.\n", fill_size, match->order_id,
+  //        match->price);
 }
 
 /**

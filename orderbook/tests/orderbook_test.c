@@ -104,6 +104,87 @@ Test(orderbook,
 }
 
 Test(orderbook,
+     market_has_liquidity,
+     .init = orderbook_setup,
+     .fini = orderbook_teardown) {
+#define N 5
+  struct order orders[N] = {
+      (struct order){.side = SIDE_BID,
+                     .order_id = next_order_id(),
+                     .price = 10,
+                     .size = 3},
+      (struct order){.side = SIDE_BID,
+                     .order_id = next_order_id(),
+                     .price = 10,
+                     .size = 2},
+      (struct order){.side = SIDE_BID,
+                     .order_id = next_order_id(),
+                     .price = 10,
+                     .size = 1},
+      (struct order){.side = SIDE_BID,
+                     .order_id = next_order_id(),
+                     .price = 11,
+                     .size = 2},
+      (struct order){.side = SIDE_BID,
+                     .order_id = next_order_id(),
+                     .price = 12,
+                     .size = 1},
+  };
+
+  for (int i = 0; i < N; i++)
+    orderbook_limit(&ob, orders[i]);
+
+  cr_assert_eq(ob.bid->best->price, 12);
+  cr_assert_eq(ob.bid->best->volume, 1);
+  cr_assert_eq(ob.bid->best->order_count, 1);
+  cr_assert_eq(ob.bid->size, 3);
+
+  orderbook_market(&ob, SIDE_ASK, 1);
+
+  cr_assert_eq(ob.bid->best->price, 11);
+  cr_assert_eq(ob.bid->best->volume, 2);
+  cr_assert_eq(ob.bid->best->order_count, 1);
+  cr_assert_eq(ob.bid->size, 2);
+
+  orderbook_market(&ob, SIDE_ASK, 1);
+
+  cr_assert_eq(ob.bid->best->price, 11);
+  cr_assert_eq(ob.bid->best->volume, 1);
+  cr_assert_eq(ob.bid->best->order_count, 1);
+  cr_assert_eq(ob.bid->size, 2);
+
+  orderbook_market(&ob, SIDE_ASK, 2);
+
+  cr_assert_eq(ob.bid->best->price, 10);
+  cr_assert_eq(ob.bid->best->volume, 5);
+  cr_assert_eq(ob.bid->best->order_count, 3);
+  cr_assert_eq(ob.bid->size, 1);
+
+  orderbook_market(&ob, SIDE_ASK, 2);
+
+  cr_assert_eq(ob.bid->best->price, 10);
+  cr_assert_eq(ob.bid->best->volume, 3);
+  cr_assert_eq(ob.bid->best->order_count, 2);
+  cr_assert_eq(ob.bid->size, 1);
+
+  orderbook_market(&ob, SIDE_ASK, 3);
+
+  cr_assert_eq(ob.bid->best, NULL);
+  cr_assert_eq(ob.bid->size, 0);
+}
+
+Test(orderbook,
+     market_no_liquidity,
+     .init = orderbook_setup,
+     .fini = orderbook_teardown) {
+  cr_assert_eq(ob.ask->best, NULL);
+
+  orderbook_market(&ob, SIDE_BID, 3);
+
+  cr_assert_eq(ob.ask->best, NULL);
+}
+
+Test(orderbook,
      top_n_bids,
      .init = orderbook_setup,
      .fini = orderbook_teardown) {

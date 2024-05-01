@@ -11,6 +11,7 @@
 struct orderbook {
   struct limit_tree* bid;
   struct limit_tree* ask;
+
   // order_metadata
 };
 

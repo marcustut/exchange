@@ -26,42 +26,40 @@ void limit_tree_free(struct limit_tree* tree) {
 }
 
 void limit_tree_update_best(struct limit_tree* tree, struct limit* limit) {
+  // if no limit is specified then update based on min / max
   if (limit == NULL) {
     if (tree->best == NULL)
       return;
 
-    if (tree->size == 0) {  // no more limits hence no best limit
-      tree->best = NULL;
-      return;
-    }
-
-    if (tree->best->order_head == NULL) {  // no more orders in queue
+    if (tree->size == 0) {  // no limits hence no best limit
       tree->best = NULL;
       return;
     }
 
     switch (tree->side) {
       case SIDE_BID:
-        tree->best = limit_tree_max(tree);
+        tree->best = limit_tree_max(tree);  // find max from tree
         break;
       case SIDE_ASK:
-        tree->best = limit_tree_min(tree);
+        tree->best = limit_tree_min(tree);  // find min from tree
         break;
     }
+
+    return;
   }
 
-  if (tree->best == NULL) {
+  if (tree->best == NULL) {  // currently no best, just update
     tree->best = limit;
     return;
   }
 
   switch (tree->side) {
     case SIDE_BID:
-      if (limit->price > tree->best->price)
+      if (limit->price > tree->best->price)  // best bid is bigger
         tree->best = limit;
       break;
     case SIDE_ASK:
-      if (limit->price < tree->best->price)
+      if (limit->price < tree->best->price)  // best ask is smaller
         tree->best = limit;
       break;
   }
@@ -125,6 +123,7 @@ struct limit* _limit_tree_remove(struct limit* node, struct limit* limit) {
 
 void limit_tree_remove(struct limit_tree* tree, struct limit* limit) {
   tree->root = _limit_tree_remove(tree->root, limit);
+  limit_free(limit);
   free(limit);
   tree->size--;
 }
