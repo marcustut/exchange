@@ -74,9 +74,9 @@ void orderbook_limit(struct orderbook* ob, struct order _order) {
   }
 }
 
-void orderbook_market(struct orderbook* ob,
-                      const enum side side,
-                      uint64_t size) {
+uint64_t orderbook_market(struct orderbook* ob,
+                          const enum side side,
+                          uint64_t size) {
   struct limit_tree* tree;
   switch (side) {
     case SIDE_BID:
@@ -94,7 +94,7 @@ void orderbook_market(struct orderbook* ob,
     if (tree->best->order_head == NULL) {
       limit_tree_update_best(tree, NULL);  // find next best
       if (tree->best == NULL || tree->best->order_head == NULL)  // no liquidity
-        return;
+        return size;
     }
 
     struct order* match = tree->best->order_head;  // always match top in queue
@@ -137,6 +137,8 @@ void orderbook_market(struct orderbook* ob,
   // TODO: emit event
   // printf("%ld of %ld is fully filled at %ld.\n", fill_size, match->order_id,
   //        match->price);
+
+  return size;
 }
 
 /**

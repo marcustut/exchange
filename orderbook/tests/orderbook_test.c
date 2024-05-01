@@ -139,35 +139,35 @@ Test(orderbook,
   cr_assert_eq(ob.bid->best->order_count, 1);
   cr_assert_eq(ob.bid->size, 3);
 
-  orderbook_market(&ob, SIDE_ASK, 1);
+  cr_assert_eq(orderbook_market(&ob, SIDE_ASK, 1), 0);
 
   cr_assert_eq(ob.bid->best->price, 11);
   cr_assert_eq(ob.bid->best->volume, 2);
   cr_assert_eq(ob.bid->best->order_count, 1);
   cr_assert_eq(ob.bid->size, 2);
 
-  orderbook_market(&ob, SIDE_ASK, 1);
+  cr_assert_eq(orderbook_market(&ob, SIDE_ASK, 1), 0);
 
   cr_assert_eq(ob.bid->best->price, 11);
   cr_assert_eq(ob.bid->best->volume, 1);
   cr_assert_eq(ob.bid->best->order_count, 1);
   cr_assert_eq(ob.bid->size, 2);
 
-  orderbook_market(&ob, SIDE_ASK, 2);
+  cr_assert_eq(orderbook_market(&ob, SIDE_ASK, 2), 0);
 
   cr_assert_eq(ob.bid->best->price, 10);
   cr_assert_eq(ob.bid->best->volume, 5);
   cr_assert_eq(ob.bid->best->order_count, 3);
   cr_assert_eq(ob.bid->size, 1);
 
-  orderbook_market(&ob, SIDE_ASK, 2);
+  cr_assert_eq(orderbook_market(&ob, SIDE_ASK, 2), 0);
 
   cr_assert_eq(ob.bid->best->price, 10);
   cr_assert_eq(ob.bid->best->volume, 3);
   cr_assert_eq(ob.bid->best->order_count, 2);
   cr_assert_eq(ob.bid->size, 1);
 
-  orderbook_market(&ob, SIDE_ASK, 3);
+  cr_assert_eq(orderbook_market(&ob, SIDE_ASK, 3), 0);
 
   cr_assert_eq(ob.bid->best, NULL);
   cr_assert_eq(ob.bid->size, 0);
@@ -179,7 +179,19 @@ Test(orderbook,
      .fini = orderbook_teardown) {
   cr_assert_eq(ob.ask->best, NULL);
 
-  orderbook_market(&ob, SIDE_BID, 3);
+  cr_assert_eq(orderbook_market(&ob, SIDE_BID, 3), 3);
+
+  cr_assert_eq(ob.ask->best, NULL);
+
+  orderbook_limit(&ob, (struct order){.side = SIDE_ASK,
+                                      .order_id = next_order_id(),
+                                      .price = 10,
+                                      .size = 3});
+
+  cr_assert_eq(ob.ask->best->price, 10);
+  cr_assert_eq(ob.ask->best->volume, 3);
+
+  cr_assert_eq(orderbook_market(&ob, SIDE_BID, 4), 1);
 
   cr_assert_eq(ob.ask->best, NULL);
 }

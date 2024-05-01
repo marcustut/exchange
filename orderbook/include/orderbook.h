@@ -34,9 +34,9 @@ void orderbook_limit(struct orderbook* ob, struct order order);
 /**
  * Place a market order. Always a taker order (reducing volume from the book)
  */
-void orderbook_market(struct orderbook* ob,
-                      const enum side side,
-                      uint64_t size);
+uint64_t orderbook_market(struct orderbook* ob,
+                          const enum side side,
+                          uint64_t size);
 
 /**
  * Read the top N bids or asks from the book. Note that the limits will be
