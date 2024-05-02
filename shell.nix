@@ -12,7 +12,7 @@
         gdb             # GNU debugger
         criterion       # Unit test framework
         # hiredis         # redis driver
-        # cjson           # JSON parsing
+        cjson           # JSON parsing
         # libyaml         # YAML parsing
         # libcyaml        # Strongly-typed YAML parsing
     ];

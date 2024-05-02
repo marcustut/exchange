@@ -16,11 +16,14 @@ test_src = [
 ]
 
 criterion = dependency('criterion')
+cjson = dependency('libcjson')
 
 executable(
-    'demo',
-    src + 'main.c',
-    include_directories: incdir,
+    'bench',
+    src + 'benchmark.c',
+    include_directories: [incdir, include_directories('vendor/ubench')],
+    link_args: ['-lm'],
+    dependencies: [cjson]
 )
 executable(
     'unit_test',
