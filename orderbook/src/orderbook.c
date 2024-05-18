@@ -1,6 +1,7 @@
 #include "orderbook.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #define MIN(a, b)           \
   ({                        \
@@ -126,9 +127,11 @@ uint64_t orderbook_market(struct orderbook* ob,
              match->order_id, match->price);
 
       free(order_metadata_map_remove(
-          &ob->map, match->order_id));      // remove order metadata
-      limit_tree_remove(tree, tree->best);  // remove the limit
-      limit_tree_update_best(tree, NULL);   // find next best
+          &ob->map, match->order_id));  // remove order metadata
+      price_limit_map_remove(&tree->map,
+                             match->price);  // remove price
+      limit_tree_remove(tree, tree->best);   // remove the limit
+      limit_tree_update_best(tree, NULL);    // find next best
       continue;
     }
 
@@ -168,6 +171,17 @@ enum orderbook_error orderbook_cancel(struct orderbook* ob,
   if (order_metadata == NULL)
     return OBERR_ORDER_NOT_FOUND;
 
+  if (order_metadata->order == NULL) {
+    fprintf(stderr, "wtf order is NULL orderbook_cancel: order_id: %ld\n",
+            order_id);
+    exit(EXIT_FAILURE);
+  }
+  if (order_metadata->order->limit == NULL) {
+    fprintf(stderr,
+            "wtf order->limit is NULL orderbook_cancel: order_id: %ld\n",
+            order_id);
+    exit(EXIT_FAILURE);
+  }
   struct order* order = order_metadata->order;
   struct limit* limit = order->limit;
 
@@ -186,8 +200,9 @@ enum orderbook_error orderbook_cancel(struct orderbook* ob,
 
   if (limit->order_count == 1) {  // only order in the limit
 
-    bool is_best = tree->best == limit;  // check if limit is best
-    limit_tree_remove(tree, limit);      // remove the limit
+    bool is_best = tree->best == limit;                // check if limit is best
+    price_limit_map_remove(&tree->map, limit->price);  // remove price
+    limit_tree_remove(tree, limit);                    // remove the limit
 
     if (is_best)                           // if the limit is previous best
       limit_tree_update_best(tree, NULL);  // find next best
@@ -289,4 +304,27 @@ void orderbook_top_n(struct orderbook* ob,
       fprintf(stderr, "received unrecognised order side");
       exit(1);
   }
+}
+
+// a helper function to traverse the tree reverse in-order
+void _orderbook_print_limit_tree(char* str, size_t* len, struct limit* node) {
+  if (node == NULL)
+    return;
+
+  _orderbook_print_limit_tree(str, len, node->right);
+  *len += sprintf(str + *len, "%ld (%ld) [%ld]\n", node->price, node->volume,
+                  node->order_count);
+  _orderbook_print_limit_tree(str, len, node->left);
+}
+
+char* orderbook_print(struct orderbook* ob) {
+  uint64_t size = (ob->bid->size + ob->ask->size + 1) * 100;
+  char* str = malloc(size * sizeof(char));
+  size_t len = 0;
+
+  _orderbook_print_limit_tree(str, &len, ob->ask->root);
+  len += sprintf(str + len, "-----------------------\n");
+  _orderbook_print_limit_tree(str, &len, ob->bid->root);
+
+  return str;
 }

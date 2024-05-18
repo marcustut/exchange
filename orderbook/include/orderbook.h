@@ -86,4 +86,10 @@ void orderbook_top_n(struct orderbook* ob,
                      const uint32_t n,
                      struct limit* buffer);
 
+/**
+ * Prints the orderbook state, it will allocate a string. Once it returns,
+ * it is the caller's responsibility to deallocate it after use with `free`.
+ */
+char* orderbook_print(struct orderbook* ob);
+
 #endif
