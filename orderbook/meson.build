@@ -21,13 +21,17 @@ cjson = dependency('libcjson')
 executable(
     'bench',
     src + 'benchmark.c',
-    include_directories: [incdir, include_directories('vendor/ubench')],
+    include_directories: [
+        incdir, 
+        include_directories('vendor/ubench'), 
+        include_directories('tests'),
+    ],
     link_args: ['-lm'],
     dependencies: [cjson]
 )
 executable(
     'unit_test',
     src + test_src,
-    include_directories: incdir,
-    dependencies: [criterion],
+    include_directories: [incdir, include_directories('tests')],
+    dependencies: [criterion, cjson],
 )

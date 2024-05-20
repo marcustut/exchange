@@ -16,7 +16,7 @@ struct order_metadata_map_entry {
 };
 
 struct order_metadata_map {
-  uint32_t size, capacity, prime, scale, shift;
+  uint32_t size, capacity, prime, scale, shift, tombstone_count;
   double max_load_factor;
   struct order_metadata_map_entry* table;
 };
@@ -35,5 +35,7 @@ struct order_metadata* order_metadata_map_get_mut(
     uint64_t order_id);
 struct order_metadata* order_metadata_map_remove(struct order_metadata_map* map,
                                                  uint64_t order_id);
+
+char* order_metadata_map_print(struct order_metadata_map* map);
 
 #endif

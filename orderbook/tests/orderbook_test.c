@@ -1,6 +1,10 @@
 #include <criterion/criterion.h>
+#include <criterion/new/assert.h>
 
 #include "orderbook.h"
+#include "tests/orderbook_message.h"
+
+#define DATA "data/l3_orderbook_100k.ndjson"
 
 struct orderbook ob;
 uint64_t current_order_id = 1;
@@ -389,4 +393,71 @@ Test(orderbook,
   for (int i = 0; i < n; i++)
     cr_assert_eq(asks2[i].price, 1 + i);
   free(asks2);
+}
+
+#define CHECK_FILE(count)                                                   \
+  size_t messages_len = get_line_count(DATA);                               \
+  struct message* messages = parse_messages(DATA);                          \
+  for (int i = 0; i < messages_len; i++) {                                  \
+    struct message message = messages[i];                                   \
+    switch (message.message_type) {                                         \
+      case MESSAGE_TYPE_CREATED:                                            \
+        if (message.size != 0)                                              \
+          orderbook_limit(&ob, (struct order){.order_id = message.order_id, \
+                                              .side = message.side,         \
+                                              .price = message.price,       \
+                                              .size = message.size});       \
+        else                                                                \
+          orderbook_market(&ob, message.side, message.size);                \
+        break;                                                              \
+      case MESSAGE_TYPE_DELETED:                                            \
+        orderbook_cancel(&ob, message.order_id);                            \
+        break;                                                              \
+      case MESSAGE_TYPE_CHANGED:                                            \
+        orderbook_amend_size(&ob, message.order_id, message.size);          \
+        break;                                                              \
+    }                                                                       \
+    if (i == count - 1) {                                                   \
+      char* state = orderbook_print(&ob);                                   \
+      FILE* file = fopen("data/valid_ob_state_" #count ".log", "r");        \
+      char* buffer = malloc(strlen(state) * sizeof(char));                  \
+      size_t len = fread(buffer, sizeof(char), strlen(state), file);        \
+      if (ferror(file) != 0)                                                \
+        fputs("Error reading file", stderr);                                \
+      else                                                                  \
+        buffer[len++] = '\0';                                               \
+      cr_assert(eq(str, state, buffer));                                    \
+      free(buffer);                                                         \
+      fclose(file);                                                         \
+      free(state);                                                          \
+    }                                                                       \
+  }                                                                         \
+  free(messages);
+
+Test(orderbook,
+     state_after_100_messages,
+     .init = orderbook_setup,
+     .fini = orderbook_teardown) {
+  CHECK_FILE(100);
+}
+
+Test(orderbook,
+     state_after_1000_messages,
+     .init = orderbook_setup,
+     .fini = orderbook_teardown) {
+  CHECK_FILE(1000);
+}
+
+Test(orderbook,
+     state_after_10000_messages,
+     .init = orderbook_setup,
+     .fini = orderbook_teardown) {
+  CHECK_FILE(10000);
+}
+
+Test(orderbook,
+     state_after_100000_messages,
+     .init = orderbook_setup,
+     .fini = orderbook_teardown) {
+  CHECK_FILE(100000);
 }

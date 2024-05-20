@@ -172,13 +172,12 @@ enum orderbook_error orderbook_cancel(struct orderbook* ob,
     return OBERR_ORDER_NOT_FOUND;
 
   if (order_metadata->order == NULL) {
-    fprintf(stderr, "wtf order is NULL orderbook_cancel: order_id: %ld\n",
+    fprintf(stderr, "order is NULL orderbook_cancel: order_id: %ld\n",
             order_id);
     exit(EXIT_FAILURE);
   }
   if (order_metadata->order->limit == NULL) {
-    fprintf(stderr,
-            "wtf order->limit is NULL orderbook_cancel: order_id: %ld\n",
+    fprintf(stderr, "order->limit is NULL orderbook_cancel: order_id: %ld\n",
             order_id);
     exit(EXIT_FAILURE);
   }
@@ -312,8 +311,9 @@ void _orderbook_print_limit_tree(char* str, size_t* len, struct limit* node) {
     return;
 
   _orderbook_print_limit_tree(str, len, node->right);
-  *len += sprintf(str + *len, "%ld (%ld) [%ld]\n", node->price, node->volume,
-                  node->order_count);
+  // *len += sprintf(str + *len, "%ld (%ld) [%ld]\n", node->price, node->volume,
+  //                 node->order_count);
+  *len += sprintf(str + *len, "%ld (%ld)\n", node->price, node->volume);
   _orderbook_print_limit_tree(str, len, node->left);
 }
 

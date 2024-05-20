@@ -10,7 +10,7 @@ struct price_limit_map_entry {
 };
 
 struct price_limit_map {
-  uint32_t size, capacity, prime, scale, shift;
+  uint32_t size, capacity, prime, scale, shift, tombstone_count;
   double max_load_factor;
   struct price_limit_map_entry* table;
 };
@@ -26,5 +26,7 @@ struct limit* price_limit_map_get_mut(struct price_limit_map* map,
                                       uint64_t price);
 struct limit* price_limit_map_remove(struct price_limit_map* map,
                                      uint64_t price);
+
+char* price_limit_map_print(struct price_limit_map* map);
 
 #endif

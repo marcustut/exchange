@@ -1,5 +1,6 @@
 #include "price_limit_map.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -40,6 +41,11 @@ void price_limit_map_free(struct price_limit_map* map) {
 struct limit price_limit_map_put(struct price_limit_map* map,
                                  uint64_t price,
                                  struct limit* limit) {
+  if (price == TOMBSTONE_KEY) {
+    fprintf(stderr, "price cannot be TOMBSTONE_KEY(%ld)\n", TOMBSTONE_KEY);
+    exit(EXIT_FAILURE);
+  }
+
   int i = _price_limit_map_probe(map, price);
   if (i >= 0) {  // found existing, update
     struct limit previous_value = *map->table[i].value;
@@ -54,7 +60,8 @@ struct limit price_limit_map_put(struct price_limit_map* map,
   // Since linear probing works best when the load factor is low, we
   // _price_limit_map_resize the table once the load factor exceeds this
   // specified limit.
-  uint32_t load_factor = (map->size * 100) / map->capacity;
+  uint32_t load_factor =
+      ((map->size + map->tombstone_count) * 100) / map->capacity;
   if (load_factor > map->max_load_factor)
     _price_limit_map_resize(map, 2 * map->capacity - 1);
 
@@ -82,38 +89,46 @@ struct limit* price_limit_map_remove(struct price_limit_map* map,
   if (i < 0)  // not able to find the element to remove
     return NULL;
   struct limit* removed = map->table[i].value;
-  map->table[i] = (struct price_limit_map_entry){.key = DEFAULT_EMPTY_KEY};
+  map->table[i] = (struct price_limit_map_entry){.key = TOMBSTONE_KEY};
   map->size--;
+  map->tombstone_count++;
   return removed;
+}
+
+char* price_limit_map_print(struct price_limit_map* map) {
+  char* str = malloc(map->capacity * sizeof(char) * 100);
+  size_t len = 0;
+
+  len += sprintf(str + len, "{");
+  for (int i = 0; i < map->capacity; i++) {
+    if (map->table[i].key == DEFAULT_EMPTY_KEY ||
+        map->table[i].key == TOMBSTONE_KEY)
+      continue;
+
+    len += sprintf(str + len, "%ld[%d]: %ld, ", map->table[i].key, i,
+                   map->table[i].value->volume);
+  }
+  if (len > 2) {  // remove the last ", "
+    memmove(&str[len - 2], &str[len], 2);
+    len -= 2;
+  }
+  len += sprintf(str + len, "}");
+
+  return str;
 }
 
 /**
  * Hash function to get the index of the _price_limit_map_hash table given a
- * key. Note that this function uses a combination of the MAD
- * (Multiply-Add-and-Divide) and division compression method:
+ * key.
  *
- * MAD: (ka + b) mod p
- *
- * where:
- * k = key
- * a = scale
- * b = shift
- * p = a prime number
- *
- * Division: k mod N
- *
- * where:
- * k = key
- * N = capacity
- *
- * The reason we combine them two because MAD requires that N to be a prime
- * number but our capacity is not necessarily a prime number. To summarize,
- * the function is described as:
- *
- * _price_limit_map_hash: ((ka + b) mod p) mod N
+ * @ref
+ * https://stackoverflow.com/questions/664014/what-integer-hash-function-are-good-that-accepts-an-integer-hash-key
  */
 size_t _price_limit_map_hash(struct price_limit_map* map, uint64_t key) {
-  return (abs(key * map->scale + map->shift) % map->prime) % map->capacity;
+  key = (key ^ (key >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
+  key = (key ^ (key >> 27)) * UINT64_C(0x94d049bb133111eb);
+  key = key ^ (key >> 31);
+  return key % map->capacity;
 }
 
 /**
@@ -154,9 +169,14 @@ void _price_limit_map_resize(struct price_limit_map* map, uint32_t capacity) {
 
   // Copy back the items in temp into the new
   map->table = malloc(sizeof(struct price_limit_map_entry) * capacity);
-  memcpy(map->table, temp, sizeof(struct price_limit_map_entry) * old_capacity);
-  for (int i = old_capacity; i < capacity; i++)
+  for (int i = 0; i < capacity; i++)
     map->table[i].key = DEFAULT_EMPTY_KEY;
+  map->size = 0;
+  for (int i = 0; i < old_capacity; i++)
+    if (temp[i].key != DEFAULT_EMPTY_KEY && temp[i].key != TOMBSTONE_KEY)
+      price_limit_map_put(map, temp[i].key, temp[i].value);
+
+  map->tombstone_count = 0;  // reset tombstone count
 
   free(temp);
 }
