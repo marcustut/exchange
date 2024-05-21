@@ -25,21 +25,21 @@ UBENCH_F_TEARDOWN(ob_benchmark) {
 UBENCH_F(ob_benchmark, process_ob_message) {
   struct orderbook* ob = &ubench_fixture->orderbook;
 
-  // for (int i = 0; i < ubench_fixture->messages_len; i++) {
-  for (int i = 0; i < 1000; i++) {
+  for (int i = 0; i < ubench_fixture->messages_len; i++) {
+    // for (int i = 0; i < 1000; i++) {
     const struct message message = ubench_fixture->messages[i];
-    printf("%d: ", i);
-    if (message.message_type == MESSAGE_TYPE_CREATED)
-      printf("%s (%s)", "order_created",
-             message.side == SIDE_ASK ? "ask" : "bid");
-    else if (message.message_type == MESSAGE_TYPE_DELETED)
-      printf("%s", "order_deleted");
-    else
-      printf("%s", "order_changed");
+    // printf("%d: ", i);
+    // if (message.message_type == MESSAGE_TYPE_CREATED)
+    //   printf("%s (%s)", "order_created",
+    //          message.side == SIDE_ASK ? "ask" : "bid");
+    // else if (message.message_type == MESSAGE_TYPE_DELETED)
+    //   printf("%s", "order_deleted");
+    // else
+    //   printf("%s", "order_changed");
 
-    printf(" %ld (%ld)", message.price, message.size);
+    // printf(" %ld (%ld)", message.price, message.size);
 
-    printf("\n");
+    // printf("\n");
     switch (message.message_type) {
       case MESSAGE_TYPE_CREATED:
         if (message.price == 0)  // market
@@ -58,12 +58,12 @@ UBENCH_F(ob_benchmark, process_ob_message) {
         break;
     }
 
-    char* str = orderbook_print(ob);
-    printf("%s\n", str);
-    free(str);
+    // char* str = orderbook_print(ob);
+    // printf("%s\n", str);
+    // free(str);
   }
 
-  exit(EXIT_SUCCESS);  // remove this (only for debugging)
+  // exit(EXIT_SUCCESS);  // remove this (only for debugging)
 }
 
 UBENCH_MAIN();
