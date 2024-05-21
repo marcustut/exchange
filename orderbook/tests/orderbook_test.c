@@ -402,13 +402,13 @@ Test(orderbook,
     struct message message = messages[i];                                   \
     switch (message.message_type) {                                         \
       case MESSAGE_TYPE_CREATED:                                            \
-        if (message.size != 0)                                              \
+        if (message.price == 0)                                             \
+          orderbook_market(&ob, message.side, message.size);                \
+        else                                                                \
           orderbook_limit(&ob, (struct order){.order_id = message.order_id, \
                                               .side = message.side,         \
                                               .price = message.price,       \
                                               .size = message.size});       \
-        else                                                                \
-          orderbook_market(&ob, message.side, message.size);                \
         break;                                                              \
       case MESSAGE_TYPE_DELETED:                                            \
         orderbook_cancel(&ob, message.order_id);                            \

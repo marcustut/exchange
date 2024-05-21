@@ -123,8 +123,8 @@ uint64_t orderbook_market(struct orderbook* ob,
     // order is fully filled and limit has no other orders
     if (match->size == 0 && tree->best->order_count == 1) {
       // TODO: emit event
-      printf("%ld of order %ld is fully filled at %ld.\n", fill_size,
-             match->order_id, match->price);
+      // printf("%ld of order %ld is fully filled at %ld.\n", fill_size,
+      //        match->order_id, match->price);
 
       free(order_metadata_map_remove(
           &ob->map, match->order_id));  // remove order metadata
@@ -138,8 +138,8 @@ uint64_t orderbook_market(struct orderbook* ob,
     // order is fully filled but limit still has other orders
     if (match->size == 0) {
       // TODO: emit event
-      printf("%ld of order %ld is fully filled at %ld.\n", fill_size,
-             match->order_id, match->price);
+      // printf("%ld of order %ld is fully filled at %ld.\n", fill_size,
+      //        match->order_id, match->price);
 
       free(order_metadata_map_remove(
           &ob->map, match->order_id));       // remove order metadata
@@ -150,8 +150,8 @@ uint64_t orderbook_market(struct orderbook* ob,
 
     } else {  // order is partially filled
       // TODO: emit event
-      printf("%ld of order %ld is partially filled at %ld.\n", fill_size,
-             match->order_id, match->price);
+      // printf("%ld of order %ld is partially filled at %ld.\n", fill_size,
+      //        match->order_id, match->price);
     }
 
     tree->best->volume -= fill_size;  // update limit volume

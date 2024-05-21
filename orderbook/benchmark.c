@@ -42,13 +42,13 @@ UBENCH_F(ob_benchmark, process_ob_message) {
     printf("\n");
     switch (message.message_type) {
       case MESSAGE_TYPE_CREATED:
-        if (message.size != 0)  // limit
+        if (message.price == 0)  // market
+          orderbook_market(ob, message.side, message.size);
+        else  // limit
           orderbook_limit(ob, (struct order){.order_id = message.order_id,
                                              .side = message.side,
                                              .price = message.price,
                                              .size = message.size});
-        else  // market
-          orderbook_market(ob, message.side, message.size);
         break;
       case MESSAGE_TYPE_DELETED:
         orderbook_cancel(ob, message.order_id);

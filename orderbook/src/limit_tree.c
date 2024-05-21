@@ -100,10 +100,10 @@ struct limit* _limit_tree_remove(struct limit* node, struct limit* limit) {
   if (node == NULL)
     return node;
 
-  if (limit->price > node->price)  // traverse right
-    node->right = _limit_tree_remove(node->right, limit);
-  else if (limit->price < node->price)  // traverse left
+  if (limit->price < node->price)  // traverse left
     node->left = _limit_tree_remove(node->left, limit);
+  else if (limit->price > node->price)  // traverse right
+    node->right = _limit_tree_remove(node->right, limit);
   else {  // found
     // Case 1: only one child or no child
     if (node->left == NULL)
@@ -111,11 +111,25 @@ struct limit* _limit_tree_remove(struct limit* node, struct limit* limit) {
     else if (node->right == NULL)
       return node->left;
 
-    // Case 2: has both left and right child (replace by left)
-    struct limit* left = node->left;
-    struct limit* right = node->right;
-    node = left;
-    node->right = right;
+    // Case 2: has both left and right child (find successor)
+    struct limit* successor_parent = node;
+    struct limit* successor = node->left;
+
+    while (successor->right != NULL) {
+      successor_parent = successor;
+      successor = successor->right;
+    }
+
+    if (successor != node->left) {
+      struct limit* successor_left = successor->left;
+      successor->left = node->left;
+      successor->right = node->right;
+      successor_parent->right = successor_left;
+    } else {
+      successor->right = node->right;
+    }
+
+    node = successor;
   }
 
   return node;

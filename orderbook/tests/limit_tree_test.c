@@ -253,6 +253,94 @@ Test(limit_tree,
 }
 
 Test(limit_tree,
+     remove_node_nested_child,
+     .init = limit_tree_setup_bid,
+     .fini = limit_tree_teardown) {
+  cr_assert_eq(tree.size, 0);
+
+  uint64_t prices[8] = {20, 32, 15, 12, 17, 33, 11, 13};
+  struct limit* limits[8] = {NULL, NULL, NULL, NULL, NULL, NULL};
+
+  for (int i = 0; i < 8; i++) {
+    limits[i] = malloc(sizeof(struct limit));
+    *limits[i] = (struct limit){.price = prices[i]};
+    limit_tree_add(&tree, limits[i]);
+    cr_assert_eq(tree.size, i + 1);
+  }
+
+  struct limit* expected[] = {limits[6], limits[3], limits[7], limits[2],
+                              limits[4], limits[0], limits[1], limits[5]};
+  struct limit** buffer = malloc(sizeof(struct limit*) * 8);
+  int i = 0;
+  inorder_accumulate(tree.root, &i, buffer);
+  cr_assert_arr_eq_cmp(buffer, expected, 8, cmp);
+
+  limit_tree_remove(&tree, limits[2]);
+  cr_assert_eq(tree.size, 7);
+
+  struct limit* expected2[] = {limits[6], limits[3], limits[7], limits[4],
+                               limits[0], limits[1], limits[5]};
+  i = 0;
+  inorder_accumulate(tree.root, &i, buffer);
+  cr_assert_arr_eq_cmp(buffer, expected2, 7, cmp);
+
+  limit_tree_remove(&tree, limits[7]);
+  cr_assert_eq(tree.size, 6);
+
+  struct limit* expected3[] = {limits[6], limits[3], limits[4],
+                               limits[0], limits[1], limits[5]};
+  i = 0;
+  inorder_accumulate(tree.root, &i, buffer);
+  cr_assert_arr_eq_cmp(buffer, expected3, 6, cmp);
+
+  free(buffer);
+}
+
+Test(limit_tree,
+     remove_node_nested_child_with_left,
+     .init = limit_tree_setup_bid,
+     .fini = limit_tree_teardown) {
+  cr_assert_eq(tree.size, 0);
+
+  uint64_t prices[8] = {20, 32, 15, 12, 17, 33, 14, 13};
+  struct limit* limits[8] = {NULL, NULL, NULL, NULL, NULL, NULL};
+
+  for (int i = 0; i < 8; i++) {
+    limits[i] = malloc(sizeof(struct limit));
+    *limits[i] = (struct limit){.price = prices[i]};
+    limit_tree_add(&tree, limits[i]);
+    cr_assert_eq(tree.size, i + 1);
+  }
+
+  struct limit* expected[] = {limits[3], limits[7], limits[6], limits[2],
+                              limits[4], limits[0], limits[1], limits[5]};
+  struct limit** buffer = malloc(sizeof(struct limit*) * 8);
+  int i = 0;
+  inorder_accumulate(tree.root, &i, buffer);
+  cr_assert_arr_eq_cmp(buffer, expected, 8, cmp);
+
+  limit_tree_remove(&tree, limits[2]);
+  cr_assert_eq(tree.size, 7);
+
+  struct limit* expected2[] = {limits[3], limits[7], limits[6], limits[4],
+                               limits[0], limits[1], limits[5]};
+  i = 0;
+  inorder_accumulate(tree.root, &i, buffer);
+  cr_assert_arr_eq_cmp(buffer, expected2, 7, cmp);
+
+  limit_tree_remove(&tree, limits[7]);
+  cr_assert_eq(tree.size, 6);
+
+  struct limit* expected3[] = {limits[3], limits[6], limits[4],
+                               limits[0], limits[1], limits[5]};
+  i = 0;
+  inorder_accumulate(tree.root, &i, buffer);
+  cr_assert_arr_eq_cmp(buffer, expected3, 6, cmp);
+
+  free(buffer);
+}
+
+Test(limit_tree,
      min,
      .init = limit_tree_setup_bid,
      .fini = limit_tree_teardown) {
