@@ -5,7 +5,6 @@
 #include <string.h>
 #include <time.h>
 
-size_t _price_limit_map_hash(struct price_limit_map* map, uint64_t key);
 int _price_limit_map_probe(struct price_limit_map* map, uint64_t key);
 void _price_limit_map_resize(struct price_limit_map* map, uint32_t capacity);
 
@@ -118,41 +117,13 @@ char* price_limit_map_print(struct price_limit_map* map) {
 }
 
 /**
- * Hash function to get the index of the _price_limit_map_hash table given a
- * key.
- *
- * @ref
- * https://stackoverflow.com/questions/664014/what-integer-hash-function-are-good-that-accepts-an-integer-hash-key
- */
-size_t _price_limit_map_hash(struct price_limit_map* map, uint64_t key) {
-  key = (key ^ (key >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
-  key = (key ^ (key >> 27)) * UINT64_C(0x94d049bb133111eb);
-  key = key ^ (key >> 31);
-  return key % map->capacity;
-}
-
-/**
  * Search the table in a cyclic fashion to find if a key exist. The function
  * returns positive integer if a matching key is found, the returned value is
  * the index. Otherwise, it returns a negative integer indicating a free slot in
  * the table.
  */
 int _price_limit_map_probe(struct price_limit_map* map, uint64_t key) {
-  int free = -1;
-  size_t _hash = _price_limit_map_hash(map, key);
-  size_t i = _hash;
-
-  do {
-    if (map->table[i].key == DEFAULT_EMPTY_KEY) {
-      free = i;
-      break;
-    } else if (map->table[i].key == key)
-      return i;
-
-    i = (i + 1) % map->capacity;
-  } while (i != _hash);
-
-  return -(free + 1);
+  MAP_PROBE(map, key)
 }
 
 void _price_limit_map_resize(struct price_limit_map* map, uint32_t capacity) {

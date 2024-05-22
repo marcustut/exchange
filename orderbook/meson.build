@@ -5,6 +5,7 @@ src = [
     'src/orderbook.c', 
     'src/limit.c', 
     'src/limit_tree.c',
+    'src/map_utils.c',
     'src/price_limit_map.c', 
     'src/order_metadata_map.c', 
 ]
@@ -24,6 +25,16 @@ executable(
     include_directories: [
         incdir, 
         include_directories('vendor/ubench'), 
+        include_directories('tests'),
+    ],
+    link_args: ['-lm'],
+    dependencies: [cjson]
+)
+executable(
+    'raw_bench',
+    src + 'raw_benchmark.c',
+    include_directories: [
+        incdir, 
         include_directories('tests'),
     ],
     link_args: ['-lm'],
