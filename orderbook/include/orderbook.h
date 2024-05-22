@@ -9,6 +9,8 @@
 #include "order_metadata_map.h"
 #include "price_limit_map.h"
 
+#include "event_handler.h"
+
 enum orderbook_error {
   OBERR_OKAY = 0,                 // Successful
   OBERR_ORDER_NOT_FOUND = -1,     // Order is not found
@@ -19,6 +21,7 @@ struct orderbook {
   struct limit_tree* bid;
   struct limit_tree* ask;
   struct order_metadata_map map;
+  struct event_handler* handler;
 };
 
 /**
@@ -26,6 +29,12 @@ struct orderbook {
  * `orderbook_free()` when the book is no longer in use.
  */
 struct orderbook orderbook_new();
+
+/**
+ * Set an event handler to handle orderbook events such as partial fills, etc.
+ */
+void orderbook_set_event_handler(struct orderbook* ob,
+                                 struct event_handler* handler);
 
 /**
  * Deallocates memory used by the given book.

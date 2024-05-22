@@ -11,9 +11,20 @@ struct state {
   size_t messages_len;
 };
 
+void handle_filled(struct event_filled event) {
+  printf("filled %ld\n", event.order_id);
+}
+
+void handle_partially_filled(struct event_partially_filled event) {
+  printf("partially filled %ld\n", event.order_id);
+}
+
 uint64_t benchmark(struct state* state) {
   struct orderbook orderbook = orderbook_new();
   struct orderbook* ob = &orderbook;
+  struct event_handler handler =
+      event_handler_new(handle_filled, handle_partially_filled);
+  orderbook_set_event_handler(ob, &handler);
 
   struct timespec start;
   clock_gettime(CLOCK_MONOTONIC, &start);

@@ -2,6 +2,7 @@ project('orderbook', 'c', default_options: ['c_std=gnu2x', 'optimization=3'])
 
 incdir = include_directories('include')
 src = [
+    'src/event_handler.c', 
     'src/orderbook.c', 
     'src/limit.c', 
     'src/limit_tree.c',

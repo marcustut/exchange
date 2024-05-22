@@ -28,6 +28,11 @@ struct orderbook orderbook_new() {
       .bid = bid, .ask = ask, .map = order_metadata_map_new()};
 }
 
+void orderbook_set_event_handler(struct orderbook* ob,
+                                 struct event_handler* handler) {
+  ob->handler = handler;
+}
+
 void orderbook_free(struct orderbook* ob) {
   limit_tree_free(ob->bid);
   limit_tree_free(ob->ask);
@@ -125,6 +130,12 @@ uint64_t orderbook_market(struct orderbook* ob,
       // TODO: emit event
       // printf("%ld of order %ld is fully filled at %ld.\n", fill_size,
       //        match->order_id, match->price);
+      if (ob->handler != NULL)
+        ob->handler->handle_filled(
+            (struct event_filled){.order_id = match->order_id,
+                                  .filled_size = fill_size,
+                                  .remaining_size = 0,
+                                  .price = match->price});
 
       free(order_metadata_map_remove(
           &ob->map, match->order_id));  // remove order metadata
@@ -140,6 +151,12 @@ uint64_t orderbook_market(struct orderbook* ob,
       // TODO: emit event
       // printf("%ld of order %ld is fully filled at %ld.\n", fill_size,
       //        match->order_id, match->price);
+      if (ob->handler != NULL)
+        ob->handler->handle_filled(
+            (struct event_filled){.order_id = match->order_id,
+                                  .filled_size = fill_size,
+                                  .remaining_size = 0,
+                                  .price = match->price});
 
       free(order_metadata_map_remove(
           &ob->map, match->order_id));       // remove order metadata
@@ -152,14 +169,16 @@ uint64_t orderbook_market(struct orderbook* ob,
       // TODO: emit event
       // printf("%ld of order %ld is partially filled at %ld.\n", fill_size,
       //        match->order_id, match->price);
+      if (ob->handler != NULL)
+        ob->handler->handle_partially_filled((struct event_partially_filled){
+            .order_id = match->order_id,
+            .filled_size = fill_size,
+            .remaining_size = match->size - fill_size,
+            .price = match->price});
     }
 
     tree->best->volume -= fill_size;  // update limit volume
   }
-
-  // TODO: emit event
-  // printf("%ld of %ld is fully filled at %ld.\n", fill_size, match->order_id,
-  //        match->price);
 
   return size;
 }
