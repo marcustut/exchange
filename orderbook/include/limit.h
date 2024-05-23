@@ -16,6 +16,7 @@ struct order {
   uint64_t order_id;
   uint64_t price;
   uint64_t size;
+  uint64_t cum_filled_size;
   enum side side;
   struct limit* limit;  // backlink to the containing limit
 

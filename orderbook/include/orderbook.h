@@ -54,6 +54,7 @@ void orderbook_limit(struct orderbook* ob, struct order order);
  * `0` will be returned.
  */
 uint64_t orderbook_market(struct orderbook* ob,
+                          const uint64_t order_id,
                           const enum side side,
                           uint64_t size);
 

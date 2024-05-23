@@ -19,6 +19,13 @@
 
 #define CLAMP(x, min, max) (MIN(max, MAX(x, min)))
 
+void _orderbook_handle_order_event(struct orderbook* ob,
+                                   enum order_event_type type,
+                                   struct order_event event) {
+  if (ob->handler)
+    ob->handler->handle_order_event(type, event);
+}
+
 struct orderbook orderbook_new() {
   struct limit_tree* bid = malloc(sizeof(struct limit_tree));
   struct limit_tree* ask = malloc(sizeof(struct limit_tree));
@@ -93,9 +100,21 @@ void orderbook_limit(struct orderbook* ob, struct order _order) {
     price_limit_map_put(&tree->map, order->price, limit);  // add limit to map
     limit_tree_update_best(tree, limit);                   // update best limit
   }
+
+  // Emit an order created event
+  _orderbook_handle_order_event(ob, ORDER_EVENT_TYPE_CREATED,
+                                (struct order_event){
+                                    .order_id = order->order_id,
+                                    .side = order->side,
+                                    .filled_size = 0,
+                                    .cum_filled_size = 0,
+                                    .remaining_size = order->size,
+                                    .price = order->price,
+                                });
 }
 
 uint64_t orderbook_market(struct orderbook* ob,
+                          const uint64_t order_id,
                           const enum side side,
                           uint64_t size) {
   struct limit_tree* tree;
@@ -111,74 +130,92 @@ uint64_t orderbook_market(struct orderbook* ob,
       exit(1);
   }
 
-  while (tree->best != NULL && size > 0) {
-    if (tree->best->order_head == NULL) {
-      limit_tree_update_best(tree, NULL);  // find next best
-      if (tree->best == NULL || tree->best->order_head == NULL)  // no liquidity
-        return size;
-    }
+  // reject if no liquidity
+  if (tree->best == NULL) {
+    // TODO: Add reject reason
+    _orderbook_handle_order_event(ob, ORDER_EVENT_TYPE_REJECTED,
+                                  (struct order_event){.order_id = order_id,
+                                                       .side = side,
+                                                       .filled_size = 0,
+                                                       .cum_filled_size = 0,
+                                                       .remaining_size = size,
+                                                       .price = 0});
+    return size;
+  }
 
+  uint64_t cum_filled_size = 0;  // cumulative filled size
+
+  // keep matching until no liquidity left or market order is fulfilled
+  while (tree->best != NULL && size > 0) {
     struct order* match = tree->best->order_head;  // always match top in queue
     uint64_t fill_size = MIN(size, match->size);   // fill only available size
 
     // fill order
     match->size -= fill_size;
     size -= fill_size;
-
-    // order is fully filled and limit has no other orders
-    if (match->size == 0 && tree->best->order_count == 1) {
-      // TODO: emit event
-      // printf("%ld of order %ld is fully filled at %ld.\n", fill_size,
-      //        match->order_id, match->price);
-      if (ob->handler != NULL)
-        ob->handler->handle_filled(
-            (struct event_filled){.order_id = match->order_id,
-                                  .filled_size = fill_size,
-                                  .remaining_size = 0,
-                                  .price = match->price});
-
-      free(order_metadata_map_remove(
-          &ob->map, match->order_id));  // remove order metadata
-      price_limit_map_remove(&tree->map,
-                             match->price);  // remove price
-      limit_tree_remove(tree, tree->best);   // remove the limit
-      limit_tree_update_best(tree, NULL);    // find next best
-      continue;
-    }
-
-    // order is fully filled but limit still has other orders
-    if (match->size == 0) {
-      // TODO: emit event
-      // printf("%ld of order %ld is fully filled at %ld.\n", fill_size,
-      //        match->order_id, match->price);
-      if (ob->handler != NULL)
-        ob->handler->handle_filled(
-            (struct event_filled){.order_id = match->order_id,
-                                  .filled_size = fill_size,
-                                  .remaining_size = 0,
-                                  .price = match->price});
-
-      free(order_metadata_map_remove(
-          &ob->map, match->order_id));       // remove order metadata
-      tree->best->order_head = match->next;  // replace top with next in queue
-      free(match);                           // free filled order
-      tree->best->order_head->prev = NULL;   // remove dangling pointer
-      tree->best->order_count--;             // decrement limit order count
-
-    } else {  // order is partially filled
-      // TODO: emit event
-      // printf("%ld of order %ld is partially filled at %ld.\n", fill_size,
-      //        match->order_id, match->price);
-      if (ob->handler != NULL)
-        ob->handler->handle_partially_filled((struct event_partially_filled){
-            .order_id = match->order_id,
-            .filled_size = fill_size,
-            .remaining_size = match->size - fill_size,
-            .price = match->price});
-    }
-
+    match->cum_filled_size += fill_size;
+    cum_filled_size += fill_size;
     tree->best->volume -= fill_size;  // update limit volume
+
+    // emit order event for order in book
+    _orderbook_handle_order_event(
+        ob,
+        match->size == 0 ? ORDER_EVENT_TYPE_FILLED
+                         : ORDER_EVENT_TYPE_PARTIALLY_FILLED,
+        (struct order_event){.order_id = match->order_id,
+                             .side = match->side,
+                             .filled_size = fill_size,
+                             .cum_filled_size = match->cum_filled_size,
+                             .remaining_size = match->size,
+                             .price = match->price});
+    // emit order event for the market order
+    _orderbook_handle_order_event(
+        ob,
+        size == 0 ? ORDER_EVENT_TYPE_FILLED : ORDER_EVENT_TYPE_PARTIALLY_FILLED,
+        (struct order_event){.order_id = order_id,
+                             .side = side,
+                             .filled_size = fill_size,
+                             .cum_filled_size = cum_filled_size,
+                             .remaining_size = size,
+                             .price = match->price});
+
+    if (match->size == 0) {  // order in book is fully filled
+
+      if (tree->best->order_count == 1) {  // limit has no other orders
+
+        free(order_metadata_map_remove(
+            &ob->map, match->order_id));  // remove order metadata
+        price_limit_map_remove(&tree->map, match->price);  // remove price
+        limit_tree_remove(tree, tree->best);               // remove the limit
+        limit_tree_update_best(tree, NULL);                // find next best
+
+      } else {  // limit still has other orders
+
+        free(order_metadata_map_remove(
+            &ob->map, match->order_id));       // remove order metadata
+        tree->best->order_head = match->next;  // replace top with next in queue
+        free(match);                           // free filled order
+        tree->best->order_head->prev = NULL;   // remove dangling pointer
+        tree->best->order_count--;             // decrement limit order count
+
+        // find next best if it was filled
+        if (tree->best->order_head == NULL)
+          limit_tree_update_best(tree, NULL);
+      }
+    }
   }
+
+  // no enough liquidity to fulfill market order
+  if (size > 0)
+    _orderbook_handle_order_event(
+        ob, ORDER_EVENT_TYPE_PARTIALLY_FILLED_CANCELLED,
+        (struct order_event){
+            .order_id = order_id,
+            .side = side,
+            .filled_size = 0,
+            .cum_filled_size = cum_filled_size,
+            .remaining_size = size,
+            .price = 0});  // TODO: maybe save last_filled_price?
 
   return size;
 }
@@ -202,6 +239,12 @@ enum orderbook_error orderbook_cancel(struct orderbook* ob,
   }
   struct order* order = order_metadata->order;
   struct limit* limit = order->limit;
+  struct order_event event = {.order_id = order->order_id,
+                              .side = order->side,
+                              .filled_size = 0,
+                              .cum_filled_size = order->cum_filled_size,
+                              .remaining_size = order->size,
+                              .price = order->price};
 
   struct limit_tree* tree;
   switch (order->side) {
@@ -246,6 +289,9 @@ enum orderbook_error orderbook_cancel(struct orderbook* ob,
   }
 
   free(order_metadata_map_remove(&ob->map, order_id));  // remove order metadata
+  _orderbook_handle_order_event(ob, ORDER_EVENT_TYPE_CANCELLED,
+                                event);  // emit order cancelled event
+
   return OBERR_OKAY;
 }
 
