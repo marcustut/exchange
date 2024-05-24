@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "order_metadata.h"
+
 #define MIN(a, b)           \
   ({                        \
     __typeof__(a) _a = (a); \
@@ -32,7 +34,7 @@ struct orderbook orderbook_new() {
   *bid = limit_tree_new(SIDE_BID);
   *ask = limit_tree_new(SIDE_ASK);
   return (struct orderbook){
-      .bid = bid, .ask = ask, .map = order_metadata_map_new()};
+      .bid = bid, .ask = ask, .order_metadata_map = uint64_hashmap_new()};
 }
 
 void orderbook_set_event_handler(struct orderbook* ob,
@@ -47,10 +49,10 @@ void orderbook_free(struct orderbook* ob) {
   free(ob->ask);
 
   // Free the order metadatas
-  for (int i = 0; i < ob->map.capacity; i++)
-    if (ob->map.table[i].key != DEFAULT_EMPTY_KEY)
-      free(ob->map.table[i].value);
-  order_metadata_map_free(&ob->map);
+  for (int i = 0; i < ob->order_metadata_map.capacity; i++)
+    if (ob->order_metadata_map.table[i].key != DEFAULT_EMPTY_KEY)
+      free(ob->order_metadata_map.table[i].value);
+  uint64_hashmap_free(&ob->order_metadata_map);
 }
 
 void orderbook_limit(struct orderbook* ob, struct order _order) {
@@ -74,10 +76,11 @@ void orderbook_limit(struct orderbook* ob, struct order _order) {
   // Put the order onto the metadata map
   struct order_metadata* order_metadata = malloc(sizeof(struct order_metadata));
   *order_metadata = (struct order_metadata){.order = order};
-  order_metadata_map_put(&ob->map, order->order_id, order_metadata);
+  uint64_hashmap_put(&ob->order_metadata_map, order->order_id, order_metadata);
 
   // Check if the price limit exists
-  struct limit* found = price_limit_map_get_mut(&tree->map, order->price);
+  struct limit* found =
+      (struct limit*)uint64_hashmap_get(&tree->price_limit_map, order->price);
 
   if (found != NULL && found->order_tail != NULL) {
     found->order_tail->next = order;  // append order to queue
@@ -97,8 +100,9 @@ void orderbook_limit(struct orderbook* ob, struct order _order) {
 
     order->limit = limit;         // backlink to containing limit
     limit_tree_add(tree, limit);  // add limit to tree
-    price_limit_map_put(&tree->map, order->price, limit);  // add limit to map
-    limit_tree_update_best(tree, limit);                   // update best limit
+    uint64_hashmap_put(&tree->price_limit_map, order->price,
+                       limit);            // add limit to map
+    limit_tree_update_best(tree, limit);  // update best limit
   }
 
   // Emit an order created event
@@ -132,14 +136,15 @@ uint64_t orderbook_market(struct orderbook* ob,
 
   // reject if no liquidity
   if (tree->best == NULL) {
-    // TODO: Add reject reason
-    _orderbook_handle_order_event(ob, ORDER_EVENT_TYPE_REJECTED,
-                                  (struct order_event){.order_id = order_id,
-                                                       .side = side,
-                                                       .filled_size = 0,
-                                                       .cum_filled_size = 0,
-                                                       .remaining_size = size,
-                                                       .price = 0});
+    _orderbook_handle_order_event(
+        ob, ORDER_EVENT_TYPE_REJECTED,
+        (struct order_event){.order_id = order_id,
+                             .side = side,
+                             .filled_size = 0,
+                             .cum_filled_size = 0,
+                             .remaining_size = size,
+                             .price = 0,
+                             .reject_reason = REJECT_REASON_NO_LIQUIDITY});
     return size;
   }
 
@@ -183,16 +188,17 @@ uint64_t orderbook_market(struct orderbook* ob,
 
       if (tree->best->order_count == 1) {  // limit has no other orders
 
-        free(order_metadata_map_remove(
-            &ob->map, match->order_id));  // remove order metadata
-        price_limit_map_remove(&tree->map, match->price);  // remove price
-        limit_tree_remove(tree, tree->best);               // remove the limit
-        limit_tree_update_best(tree, NULL);                // find next best
+        free(uint64_hashmap_remove(&ob->order_metadata_map,
+                                   match->order_id));  // remove order metadata
+        uint64_hashmap_remove(&tree->price_limit_map,
+                              match->price);  // remove price
+        limit_tree_remove(tree, tree->best);  // remove the limit
+        limit_tree_update_best(tree, NULL);   // find next best
 
       } else {  // limit still has other orders
 
-        free(order_metadata_map_remove(
-            &ob->map, match->order_id));       // remove order metadata
+        free(uint64_hashmap_remove(&ob->order_metadata_map,
+                                   match->order_id));  // remove order metadata
         tree->best->order_head = match->next;  // replace top with next in queue
         free(match);                           // free filled order
         tree->best->order_head->prev = NULL;   // remove dangling pointer
@@ -205,17 +211,16 @@ uint64_t orderbook_market(struct orderbook* ob,
     }
   }
 
-  // no enough liquidity to fulfill market order
+  // not enough liquidity to fulfill market order
   if (size > 0)
     _orderbook_handle_order_event(
         ob, ORDER_EVENT_TYPE_PARTIALLY_FILLED_CANCELLED,
-        (struct order_event){
-            .order_id = order_id,
-            .side = side,
-            .filled_size = 0,
-            .cum_filled_size = cum_filled_size,
-            .remaining_size = size,
-            .price = 0});  // TODO: maybe save last_filled_price?
+        (struct order_event){.order_id = order_id,
+                             .side = side,
+                             .filled_size = 0,
+                             .cum_filled_size = cum_filled_size,
+                             .remaining_size = size,
+                             .price = 0});
 
   return size;
 }
@@ -223,7 +228,8 @@ uint64_t orderbook_market(struct orderbook* ob,
 enum orderbook_error orderbook_cancel(struct orderbook* ob,
                                       const uint64_t order_id) {
   struct order_metadata* order_metadata =
-      order_metadata_map_get_mut(&ob->map, order_id);
+      (struct order_metadata*)uint64_hashmap_get(&ob->order_metadata_map,
+                                                 order_id);
   if (order_metadata == NULL)
     return OBERR_ORDER_NOT_FOUND;
 
@@ -261,9 +267,10 @@ enum orderbook_error orderbook_cancel(struct orderbook* ob,
 
   if (limit->order_count == 1) {  // only order in the limit
 
-    bool is_best = tree->best == limit;                // check if limit is best
-    price_limit_map_remove(&tree->map, limit->price);  // remove price
-    limit_tree_remove(tree, limit);                    // remove the limit
+    bool is_best = tree->best == limit;  // check if limit is best
+    uint64_hashmap_remove(&tree->price_limit_map,
+                          limit->price);  // remove price
+    limit_tree_remove(tree, limit);       // remove the limit
 
     if (is_best)                           // if the limit is previous best
       limit_tree_update_best(tree, NULL);  // find next best
@@ -288,7 +295,8 @@ enum orderbook_error orderbook_cancel(struct orderbook* ob,
     free(order);                   // free cancelled order
   }
 
-  free(order_metadata_map_remove(&ob->map, order_id));  // remove order metadata
+  free(uint64_hashmap_remove(&ob->order_metadata_map,
+                             order_id));  // remove order metadata
   _orderbook_handle_order_event(ob, ORDER_EVENT_TYPE_CANCELLED,
                                 event);  // emit order cancelled event
 
@@ -302,7 +310,8 @@ enum orderbook_error orderbook_amend_size(struct orderbook* ob,
     return OBERR_INVALID_ORDER_SIZE;
 
   struct order_metadata* order_metadata =
-      order_metadata_map_get_mut(&ob->map, order_id);
+      (struct order_metadata*)uint64_hashmap_get(&ob->order_metadata_map,
+                                                 order_id);
   if (order_metadata == NULL)
     return OBERR_ORDER_NOT_FOUND;
 

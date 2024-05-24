@@ -3,6 +3,7 @@
 
 #include "orderbook.h"
 #include "tests/orderbook_message.h"
+#include "uint64_hashmap.h"
 
 #define DATA "data/l3_orderbook_100k.ndjson"
 
@@ -20,52 +21,68 @@ UBENCH_F_TEARDOWN(ob_benchmark) {
   free(ubench_fixture->messages);
 }
 
-UBENCH_EX_F(ob_benchmark, process_100k_message) {
+UBENCH_F(ob_benchmark, process_100k_message) {
   struct orderbook orderbook = orderbook_new();
   struct orderbook* ob = &orderbook;
 
-  UBENCH_DO_BENCHMARK() {
-    for (int i = 0; i < ubench_fixture->messages_len; i++) {
-      // for (int i = 0; i < 1000; i++) {
-      const struct message message = ubench_fixture->messages[i];
-      // printf("%d: ", i);
-      // if (message.message_type == MESSAGE_TYPE_CREATED)
-      //   printf("%s (%s)", "order_created",
-      //          message.side == SIDE_ASK ? "ask" : "bid");
-      // else if (message.message_type == MESSAGE_TYPE_DELETED)
-      //   printf("%s", "order_deleted");
-      // else
-      //   printf("%s", "order_changed");
+  for (int i = 0; i < ubench_fixture->messages_len; i++) {
+    // for (int i = 0; i < 1000; i++) {
+    const struct message message = ubench_fixture->messages[i];
+    // printf("%d: ", i);
+    // if (message.message_type == MESSAGE_TYPE_CREATED)
+    //   printf("%s (%s)", "order_created",
+    //          message.side == SIDE_ASK ? "ask" : "bid");
+    // else if (message.message_type == MESSAGE_TYPE_DELETED)
+    //   printf("%s", "order_deleted");
+    // else
+    //   printf("%s", "order_changed");
 
-      // printf(" %ld (%ld)", message.price, message.size);
+    // printf(" %ld (%ld)", message.price, message.size);
 
-      // printf("\n");
-      switch (message.message_type) {
-        case MESSAGE_TYPE_CREATED:
-          if (message.price == 0)  // market
-            orderbook_market(ob, message.order_id, message.side, message.size);
-          else  // limit
-            orderbook_limit(ob, (struct order){.order_id = message.order_id,
-                                               .side = message.side,
-                                               .price = message.price,
-                                               .size = message.size});
-          break;
-        case MESSAGE_TYPE_DELETED:
-          orderbook_cancel(ob, message.order_id);
-          break;
-        case MESSAGE_TYPE_CHANGED:
-          orderbook_amend_size(ob, message.order_id, message.size);
-          break;
-      }
-
-      // char* str = orderbook_print(ob);
-      // printf("%s\n", str);
-      // free(str);
+    // printf("\n");
+    switch (message.message_type) {
+      case MESSAGE_TYPE_CREATED:
+        if (message.price == 0)  // market
+          orderbook_market(ob, message.order_id, message.side, message.size);
+        else  // limit
+          orderbook_limit(ob, (struct order){.order_id = message.order_id,
+                                             .side = message.side,
+                                             .price = message.price,
+                                             .size = message.size});
+        break;
+      case MESSAGE_TYPE_DELETED:
+        orderbook_cancel(ob, message.order_id);
+        break;
+      case MESSAGE_TYPE_CHANGED:
+        orderbook_amend_size(ob, message.order_id, message.size);
+        break;
     }
+
+    // char* str = orderbook_print(ob);
+    // printf("%s\n", str);
+    // free(str);
   }
 
   orderbook_free(ob);
   // exit(EXIT_SUCCESS);  // remove this (only for debugging)
+}
+
+struct uint64_hashmap_benchmark {
+  struct uint64_hashmap map;
+};
+
+UBENCH_F_SETUP(uint64_hashmap_benchmark) {
+  ubench_fixture->map = uint64_hashmap_new();
+  srand(time(NULL));
+}
+
+UBENCH_F_TEARDOWN(uint64_hashmap_benchmark) {
+  uint64_hashmap_free(&ubench_fixture->map);
+}
+
+UBENCH_F(uint64_hashmap_benchmark, insert_100k_entries) {
+  for (int i = 0; i < 100'000; i++)
+    uint64_hashmap_put(&ubench_fixture->map, rand(), (void*)rand());
 }
 
 UBENCH_MAIN();

@@ -1,9 +1,13 @@
 #ifndef EVENT_HANDLER_H
 #define EVENT_HANDLER_H
-
 #include <stdint.h>
 
 #include "limit.h"
+
+enum reject_reason {
+  REJECT_REASON_NO_ERROR,  // 0 so it is the default if unspecified
+  REJECT_REASON_NO_LIQUIDITY
+};
 
 enum order_event_type {
   ORDER_EVENT_TYPE_CREATED,
@@ -17,7 +21,7 @@ enum order_event_type {
 struct order_event {
   uint64_t order_id, filled_size, cum_filled_size, remaining_size, price;
   enum side side;
-  // TODO: Add reject reason
+  enum reject_reason reject_reason;
 };
 
 struct event_handler {

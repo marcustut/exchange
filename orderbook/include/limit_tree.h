@@ -2,12 +2,12 @@
 #define LIMIT_TREE_H
 
 #include "limit.h"
-#include "price_limit_map.h"
+#include "uint64_hashmap.h"
 
 struct limit_tree {
-  enum side side;              // indicate whether bid / ask
-  struct limit* best;          // the best limit level (best bid / ask)
-  struct price_limit_map map;  // keeping track of price levels
+  enum side side;      // indicate whether bid / ask
+  struct limit* best;  // the best limit level (best bid / ask)
+  struct uint64_hashmap price_limit_map;  // keeping track of price levels
 
   struct limit* root;  // root of the limit tree
   uint64_t size;       // total limits in the tree

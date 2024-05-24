@@ -7,14 +7,12 @@ src = [
     'src/limit.c', 
     'src/limit_tree.c',
     'src/map_utils.c',
-    'src/price_limit_map.c', 
-    'src/order_metadata_map.c', 
+    'src/uint64_hashmap.c', 
 ]
 test_src = [
     'tests/orderbook_test.c', 
     'tests/limit_tree_test.c',
-    'tests/price_limit_map_test.c', 
-    'tests/order_metadata_map_test.c', 
+    'tests/uint64_hashmap_test.c', 
 ]
 
 criterion = dependency('criterion')

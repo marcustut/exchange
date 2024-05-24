@@ -6,8 +6,7 @@
 
 #include "limit.h"
 #include "limit_tree.h"
-#include "order_metadata_map.h"
-#include "price_limit_map.h"
+#include "uint64_hashmap.h"
 
 #include "event_handler.h"
 
@@ -20,7 +19,7 @@ enum orderbook_error {
 struct orderbook {
   struct limit_tree* bid;
   struct limit_tree* ask;
-  struct order_metadata_map map;
+  struct uint64_hashmap order_metadata_map;
   struct event_handler* handler;
 };
 

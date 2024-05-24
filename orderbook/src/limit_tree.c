@@ -3,7 +3,8 @@
 #include <stdlib.h>
 
 struct limit_tree limit_tree_new(enum side side) {
-  return (struct limit_tree){.side = side, .map = price_limit_map_new()};
+  return (struct limit_tree){.side = side,
+                             .price_limit_map = uint64_hashmap_new()};
 }
 
 /**
@@ -22,7 +23,7 @@ void _limit_tree_free_limits(struct limit* node) {
 void limit_tree_free(struct limit_tree* tree) {
   // Since all limits are on the heap, we free them using a traversal
   _limit_tree_free_limits(tree->root);
-  price_limit_map_free(&tree->map);
+  uint64_hashmap_free(&tree->price_limit_map);
 }
 
 void limit_tree_update_best(struct limit_tree* tree, struct limit* limit) {
