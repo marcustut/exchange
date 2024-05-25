@@ -72,7 +72,7 @@ struct uint64_hashmap_benchmark {
 };
 
 UBENCH_F_SETUP(uint64_hashmap_benchmark) {
-  ubench_fixture->map = uint64_hashmap_new();
+  ubench_fixture->map = uint64_hashmap_with_capacity(100'000);
   srand(time(NULL));
 }
 
@@ -81,8 +81,10 @@ UBENCH_F_TEARDOWN(uint64_hashmap_benchmark) {
 }
 
 UBENCH_F(uint64_hashmap_benchmark, insert_100k_entries) {
-  for (int i = 0; i < 100'000; i++)
-    uint64_hashmap_put(&ubench_fixture->map, rand(), (void*)rand());
+  for (int i = 0; i < 100'000; i++) {
+    int rand_val = rand();
+    uint64_hashmap_put(&ubench_fixture->map, rand(), &rand_val);
+  }
 }
 
 UBENCH_MAIN();

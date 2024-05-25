@@ -50,7 +50,7 @@ void orderbook_free(struct orderbook* ob) {
 
   // Free the order metadatas
   for (int i = 0; i < ob->order_metadata_map.capacity; i++)
-    if (ob->order_metadata_map.table[i].key != DEFAULT_EMPTY_KEY)
+    if (ob->order_metadata_map.table[i].value != NULL)
       free(ob->order_metadata_map.table[i].value);
   uint64_hashmap_free(&ob->order_metadata_map);
 }
