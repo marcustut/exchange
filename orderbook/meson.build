@@ -6,7 +6,6 @@ src = [
     'src/orderbook.c', 
     'src/limit.c', 
     'src/limit_tree.c',
-    'src/map_utils.c',
     'src/uint64_hashmap.c', 
 ]
 test_src = [

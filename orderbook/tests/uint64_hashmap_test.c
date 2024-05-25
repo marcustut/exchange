@@ -73,13 +73,17 @@ Test(uint64_hashmap, resize, .fini = uint64_hashmap_teardown) {
   uint32_t capacity = 3;
   map = uint64_hashmap_with_capacity(capacity);
   cr_assert_eq(map.size, 0);
-  cr_assert_eq(map.capacity, capacity);
+  cr_assert_eq(map.capacity, 1 << 2);
 
   uint64_hashmap_put(&map, 1000, &(struct limit){.price = 1000, .volume = 5});
   cr_assert_eq(map.size, 1);
-  cr_assert_eq(map.capacity, capacity);
+  cr_assert_eq(map.capacity, 1 << 2);
 
   uint64_hashmap_put(&map, 1001, &(struct limit){.price = 1001, .volume = 5});
   cr_assert_eq(map.size, 2);
-  cr_assert_eq(map.capacity, 2 * capacity - 1);
+  cr_assert_eq(map.capacity, 1 << 2);
+
+  uint64_hashmap_put(&map, 1002, &(struct limit){.price = 1002, .volume = 5});
+  cr_assert_eq(map.size, 3);
+  cr_assert_eq(map.capacity, 1 << 3);
 }
