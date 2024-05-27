@@ -22,8 +22,8 @@
         devShells.default = pkgs.mkShell rec {
           name = "exchange";
 
-          packages = with pkgs; [
-            # dev tools
+          # dev tools
+          nativeBuildInputs = with pkgs; [
             meson # build system
             ninja # build system
             cmake # build system
@@ -31,12 +31,33 @@
             valgrind # memory profiler
             gdb # GNU debugger
 
-            # libraries
-            criterion # Unit test framework
-            cjson # JSON parsing
+            cargo # rust build system
+            rustPlatform.bindgenHook # rust bindgen
           ];
-        };
 
-        packages.default = pkgs.callPackage ./orderbook/default.nix { };
+          # libraries
+          buildInputs = with pkgs; [
+            llvmPackages.libclang.lib # clang lib
+            stdenv.cc.libc # libc
+            criterion # unit test framework
+            cjson # JSON parsing
+
+            # lib for dixous (desktop app)
+            openssl
+            glib
+            cairo
+            pango
+            atk
+            gdk-pixbuf
+            libsoup
+            gtk3
+            libappindicator
+            webkitgtk_4_1
+          ];
+
+          shellHook = ''
+            export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib";
+          '';
+        };
       });
 }

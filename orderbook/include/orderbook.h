@@ -4,11 +4,10 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "event_handler.h"
 #include "limit.h"
 #include "limit_tree.h"
 #include "uint64_hashmap.h"
-
-#include "event_handler.h"
 
 enum orderbook_error {
   OBERR_OKAY = 0,                 // Successful
@@ -90,10 +89,10 @@ enum orderbook_error orderbook_amend_size(struct orderbook* ob,
  orderbook_top_n(&ob, SIDE_BID, n, bids);
  ```
  */
-void orderbook_top_n(struct orderbook* ob,
-                     const enum side side,
-                     const uint32_t n,
-                     struct limit* buffer);
+uint32_t orderbook_top_n(struct orderbook* ob,
+                         const enum side side,
+                         const uint32_t n,
+                         struct limit* buffer);
 
 /**
  * Prints the orderbook state, it will allocate a string. Once it returns,

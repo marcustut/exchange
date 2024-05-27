@@ -1,4 +1,4 @@
-project('orderbook', 'c', default_options: ['c_std=gnu2x', 'optimization=3'])
+project('orderbook', 'c', default_options: ['c_std=gnu2x', 'optimization=3', 'default_library=both'])
 
 incdir = include_directories('include')
 src = [
@@ -17,30 +17,34 @@ test_src = [
 criterion = dependency('criterion')
 cjson = dependency('libcjson')
 
+lib = library('orderbook', src, include_directories: incdir)
 executable(
     'bench',
-    src + 'benchmark.c',
+    'benchmark.c',
     include_directories: [
         incdir, 
         include_directories('vendor/ubench'), 
         include_directories('tests'),
     ],
     link_args: ['-lm'],
+    link_with: lib,
     dependencies: [cjson]
 )
 executable(
     'raw_bench',
-    src + 'raw_benchmark.c',
+    'raw_benchmark.c',
     include_directories: [
         incdir, 
         include_directories('tests'),
     ],
     link_args: ['-lm'],
+    link_with: lib,
     dependencies: [cjson]
 )
 executable(
     'unit_test',
-    src + test_src,
+    test_src,
     include_directories: [incdir, include_directories('tests')],
+    link_with: lib,
     dependencies: [criterion, cjson],
 )

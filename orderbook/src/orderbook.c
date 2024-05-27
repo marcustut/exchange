@@ -370,10 +370,10 @@ void _orderbook_top_n_ask(struct limit* node,
   _orderbook_top_n_ask(node->right, i, n, buffer);
 }
 
-void orderbook_top_n(struct orderbook* ob,
-                     const enum side side,
-                     const uint32_t n,
-                     struct limit* buffer) {
+uint32_t orderbook_top_n(struct orderbook* ob,
+                         const enum side side,
+                         const uint32_t n,
+                         struct limit* buffer) {
   uint32_t i = 0;
 
   switch (side) {
@@ -387,6 +387,8 @@ void orderbook_top_n(struct orderbook* ob,
       fprintf(stderr, "received unrecognised order side");
       exit(1);
   }
+
+  return i;
 }
 
 // a helper function to traverse the tree reverse in-order
