@@ -68,7 +68,9 @@ struct benchmark_result {
 struct benchmark_result benchmark(struct state* state) {
   struct orderbook orderbook = orderbook_new();
   struct orderbook* ob = &orderbook;
-  // struct event_handler handler = event_handler_new(handle_order_event);
+  // struct event_handler handler = event_handler_new();
+  // handler.handle_order_event = handle_order_event;
+  // handler.handle_trade_event = handle_trade_event;
   // orderbook_set_event_handler(ob, &handler);
 
   struct benchmark_result result = {};

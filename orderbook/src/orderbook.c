@@ -24,8 +24,14 @@
 void _orderbook_handle_order_event(struct orderbook* ob,
                                    enum order_event_type type,
                                    struct order_event event) {
-  if (ob->handler)
+  if (ob->handler && ob->handler->handle_order_event)
     ob->handler->handle_order_event(type, event);
+}
+
+void _orderbook_handle_trade_event(struct orderbook* ob,
+                                   struct trade_event event) {
+  if (ob->handler && ob->handler->handle_trade_event)
+    ob->handler->handle_trade_event(event);
 }
 
 struct orderbook orderbook_new() {
@@ -183,6 +189,10 @@ uint64_t orderbook_market(struct orderbook* ob,
                              .cum_filled_size = cum_filled_size,
                              .remaining_size = size,
                              .price = match->price});
+    // emit trade event
+    _orderbook_handle_trade_event(
+        ob, (struct trade_event){
+                .size = fill_size, .side = side, .price = match->price});
 
     if (match->size == 0) {  // order in book is fully filled
 

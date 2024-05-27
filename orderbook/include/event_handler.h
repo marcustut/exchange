@@ -24,12 +24,17 @@ struct order_event {
   enum reject_reason reject_reason;
 };
 
+struct trade_event {
+  uint64_t size, price;
+  enum side side;  // taker side
+};
+
 struct event_handler {
   void (*handle_order_event)(enum order_event_type type,
                              struct order_event event);
+  void (*handle_trade_event)(struct trade_event event);
 };
 
-struct event_handler event_handler_new(void (
-    *handle_order_event)(enum order_event_type type, struct order_event event));
+struct event_handler event_handler_new();
 
 #endif

@@ -11,9 +11,11 @@ struct orderbook ob;
 uint64_t current_order_id = 1;
 struct events {
   struct event_handler handler;
-  struct order_event order_events[MAX_EVENT];
   enum order_event_type order_event_types[MAX_EVENT];
+  struct order_event order_events[MAX_EVENT];
   size_t order_events_len;
+  struct trade_event trade_events[MAX_EVENT];
+  size_t trade_events_len;
 } events;
 
 uint64_t next_order_id() {
@@ -26,13 +28,20 @@ void handle_order_event(enum order_event_type type, struct order_event event) {
   events.order_events_len++;
 }
 
+void handle_trade_event(struct trade_event event) {
+  events.trade_events[events.trade_events_len] = event;
+  events.trade_events_len++;
+}
+
 void orderbook_setup(void) {
   ob = orderbook_new();
 }
 
 void orderbook_setup_with_event_handler(void) {
   ob = orderbook_new();
-  events.handler = event_handler_new(handle_order_event);
+  events.handler = event_handler_new();
+  events.handler.handle_order_event = handle_order_event;
+  events.handler.handle_trade_event = handle_trade_event;
   orderbook_set_event_handler(&ob, &events.handler);
   events.order_events_len = 0;
 }
@@ -741,4 +750,21 @@ Test(orderbook,
   cr_assert(eq(events.order_events[10].filled_size, 0));
   cr_assert(eq(events.order_events[10].cum_filled_size, 4));
   cr_assert(eq(events.order_events[10].remaining_size, 1));
+}
+
+Test(orderbook,
+     trade_event,
+     .init = orderbook_setup_with_event_handler,
+     .fini = orderbook_teardown) {
+  struct order order = {
+      .side = SIDE_BID, .order_id = 1, .price = 10000, .size = 1};
+  orderbook_limit(&ob, order);
+
+  orderbook_market(&ob, 2, SIDE_ASK, 1);
+
+  cr_assert(eq(events.trade_events_len, 1));
+
+  cr_assert(eq(events.trade_events[0].size, 1));
+  cr_assert(eq(events.trade_events[0].side, SIDE_ASK));
+  cr_assert(eq(events.trade_events[0].price, order.price));
 }
