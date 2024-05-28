@@ -4,6 +4,8 @@
 
 use std::{cell::UnsafeCell, ffi::CStr, os::raw::c_void};
 
+use libffi::high::{CType, Closure1, Closure2};
+
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 #[derive(Debug, thiserror::Error)]
@@ -47,6 +49,7 @@ impl From<Side> for side {
 #[derive(Debug)]
 pub struct Orderbook {
     ob: UnsafeCell<orderbook>,
+    event_handler: Option<UnsafeCell<event_handler>>,
 }
 
 impl Orderbook {
@@ -54,7 +57,17 @@ impl Orderbook {
     pub fn new() -> Self {
         Self {
             ob: UnsafeCell::new(unsafe { orderbook_new() }),
+            event_handler: None,
         }
+    }
+
+    /// Attach an event handler to handle orderbook events such as partial fills, etc.
+    pub fn with_handler<Ctx: Clone>(mut self, handler: EventHandler<Ctx>) -> Self {
+        self.event_handler = Some(UnsafeCell::new(handler.into()));
+        unsafe {
+            orderbook_set_event_handler(self.ob.get(), self.event_handler.as_ref().unwrap().get())
+        }
+        self
     }
 
     /// Read the top N bids or asks from the book
@@ -126,6 +139,129 @@ impl Drop for Orderbook {
     fn drop(&mut self) {
         unsafe { orderbook_free(self.ob.get()) }
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum OrderEventType {
+    Created,
+    Cancelled,
+    Rejected,
+    Filled,
+    PartiallyFilled,
+    PartiallyFilledCancelled,
+}
+
+impl From<order_event_type> for OrderEventType {
+    fn from(value: order_event_type) -> Self {
+        match value {
+            order_event_type_ORDER_EVENT_TYPE_CREATED => Self::Created,
+            order_event_type_ORDER_EVENT_TYPE_CANCELLED => Self::Cancelled,
+            order_event_type_ORDER_EVENT_TYPE_REJECTED => Self::Rejected,
+            order_event_type_ORDER_EVENT_TYPE_FILLED => Self::Filled,
+            order_event_type_ORDER_EVENT_TYPE_PARTIALLY_FILLED => Self::PartiallyFilled,
+            order_event_type_ORDER_EVENT_TYPE_PARTIALLY_FILLED_CANCELLED => {
+                Self::PartiallyFilledCancelled
+            }
+            _ => unreachable!(),
+        }
+    }
+}
+
+pub struct EventHandler<Ctx: Clone> {
+    ctx: Ctx,
+    order_event_handler: Option<Box<dyn Fn(Ctx, OrderEventType, order_event)>>,
+    trade_event_handler: Option<Box<dyn Fn(Ctx, trade_event)>>,
+}
+
+impl<Ctx: Clone> EventHandler<Ctx> {
+    pub fn with_context(ctx: Ctx) -> Self {
+        Self {
+            order_event_handler: None,
+            trade_event_handler: None,
+            ctx,
+        }
+    }
+
+    pub fn handle_order_event(
+        mut self,
+        handler: Box<dyn Fn(Ctx, OrderEventType, order_event)>,
+    ) -> Self {
+        self.order_event_handler = Some(handler);
+        self
+    }
+
+    pub fn handle_trade_event(mut self, handler: Box<dyn Fn(Ctx, trade_event)>) -> Self {
+        self.trade_event_handler = Some(handler);
+        self
+    }
+}
+
+impl<Ctx: Clone> From<EventHandler<Ctx>> for event_handler {
+    fn from(value: EventHandler<Ctx>) -> Self {
+        let mut event_handler = unsafe { event_handler_new() };
+
+        match value.order_event_handler {
+            Some(handler) => {
+                let ctx = value.ctx.clone();
+                let closure = Box::leak(Box::new(
+                    move |order_event_type: order_event_type, event: order_event| {
+                        handler(ctx.clone(), order_event_type.into(), event)
+                    },
+                ));
+                let callback = Closure2::new(closure);
+                let &code = callback.code_ptr();
+                let ptr: unsafe extern "C" fn(order_event_type, order_event) =
+                    unsafe { std::mem::transmute(code) };
+                std::mem::forget(callback);
+                event_handler.handle_order_event = Some(ptr);
+            }
+            None => {}
+        }
+
+        match value.trade_event_handler {
+            Some(handler) => {
+                let closure = Box::leak(Box::new(move |event: trade_event| {
+                    handler(value.ctx.clone(), event)
+                }));
+                let callback = Closure1::new(closure);
+                let &code = callback.code_ptr();
+                let ptr: unsafe extern "C" fn(trade_event) = unsafe { std::mem::transmute(code) };
+                std::mem::forget(callback);
+                event_handler.handle_trade_event = Some(ptr);
+            }
+            None => {}
+        }
+
+        event_handler
+    }
+}
+
+unsafe impl CType for order_event {
+    fn reify() -> libffi::high::Type<Self> {
+        libffi::high::Type::make(libffi::middle::Type::structure([
+            libffi::middle::Type::u64(),    // order_id
+            libffi::middle::Type::u64(),    // filled_size
+            libffi::middle::Type::u64(),    // cum_filled_size
+            libffi::middle::Type::u64(),    // remaining_size
+            libffi::middle::Type::u64(),    // price
+            libffi::middle::Type::c_uint(), // side
+            libffi::middle::Type::c_uint(), // reject_reason
+        ]))
+    }
+
+    type RetType = order_event;
+}
+
+unsafe impl CType for trade_event {
+    fn reify() -> libffi::high::Type<Self> {
+        libffi::high::Type::make(libffi::middle::Type::structure([
+            libffi::middle::Type::u64(),    // size
+            libffi::middle::Type::u64(),    // price
+            libffi::middle::Type::c_uint(), // side
+        ]))
+    }
+
+    type RetType = trade_event;
 }
 
 #[cfg(test)]

@@ -1,12 +1,16 @@
 use std::ptr::null_mut;
 
-use orderbook::{Orderbook, Side};
+use orderbook::{EventHandler, Orderbook, Side};
 
 fn main() {
-    let mut ob = Orderbook::new();
-
-    println!("{}", ob);
-    println!("{:?}", ob.top_n(Side::Bid, 5));
+    let handler = EventHandler::with_context(())
+        .handle_order_event(Box::new(|_ctx, event_type, event| {
+            println!("{:?}: {:?}", event_type, event);
+        }))
+        .handle_trade_event(Box::new(|_ctx, event| {
+            println!("{:?}", event);
+        }));
+    let mut ob = Orderbook::new().with_handler(handler);
 
     ob.limit(orderbook::order {
         order_id: 1,
@@ -19,11 +23,5 @@ fn main() {
         next: null_mut(),
     });
 
-    println!("{}", ob);
-    println!("{:?}", ob.top_n(Side::Bid, 5));
-
-    ob.cancel(1).unwrap();
-
-    println!("{}", ob);
-    println!("{:?}", ob.top_n(Side::Bid, 5));
+    ob.market(2, Side::Ask.into(), 5);
 }

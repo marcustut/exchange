@@ -1602,6 +1602,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97b3888a4aecf77e811145cadf6eef5901f4782c53886191b2f693f24761847c"
 
 [[package]]
+name = "libffi"
+version = "3.2.0"
+source = "git+https://github.com/marcustut/libffi-rs.git#b84f05bbeb519a6e67e4342128f6b0c8c923b30f"
+dependencies = [
+ "libc",
+ "libffi-sys",
+]
+
+[[package]]
+name = "libffi-sys"
+version = "2.3.0"
+source = "git+https://github.com/marcustut/libffi-rs.git#b84f05bbeb519a6e67e4342128f6b0c8c923b30f"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "libloading"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1865,6 +1882,7 @@ version = "0.1.0"
 dependencies = [
  "bindgen",
  "libc",
+ "libffi",
  "thiserror",
 ]
 
