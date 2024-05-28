@@ -1433,7 +1433,7 @@ dependencies = [
  "cfg-if",
  "futures-core",
  "futures-io",
- "intmap",
+ "intmap 0.7.1",
  "libc",
  "once_cell",
  "rustc_version",
@@ -1448,6 +1448,12 @@ name = "intmap"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae52f28f45ac2bc96edb7714de995cffc174a395fb0abf5bff453587c980d7b9"
+
+[[package]]
+name = "intmap"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee87fd093563344074bacf24faa0bb0227fb6969fb223e922db798516de924d6"
 
 [[package]]
 name = "io-lifetimes"
@@ -1602,23 +1608,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97b3888a4aecf77e811145cadf6eef5901f4782c53886191b2f693f24761847c"
 
 [[package]]
-name = "libffi"
-version = "3.2.0"
-source = "git+https://github.com/marcustut/libffi-rs.git#b84f05bbeb519a6e67e4342128f6b0c8c923b30f"
-dependencies = [
- "libc",
- "libffi-sys",
-]
-
-[[package]]
-name = "libffi-sys"
-version = "2.3.0"
-source = "git+https://github.com/marcustut/libffi-rs.git#b84f05bbeb519a6e67e4342128f6b0c8c923b30f"
-dependencies = [
- "cc",
-]
-
-[[package]]
 name = "libloading"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1694,6 +1683,11 @@ dependencies = [
 [[package]]
 name = "matcher"
 version = "0.1.0"
+dependencies = [
+ "intmap 2.0.0",
+ "orderbook",
+ "thiserror",
+]
 
 [[package]]
 name = "matches"
@@ -1882,7 +1876,6 @@ version = "0.1.0"
 dependencies = [
  "bindgen",
  "libc",
- "libffi",
  "thiserror",
 ]
 

@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+intmap = "2.0.0"
+orderbook = { path = "../orderbook" }
+thiserror = "1.0.61"

@@ -22,16 +22,15 @@
 #define CLAMP(x, min, max) (MIN(max, MAX(x, min)))
 
 void _orderbook_handle_order_event(struct orderbook* ob,
-                                   enum order_event_type type,
                                    struct order_event event) {
   if (ob->handler && ob->handler->handle_order_event)
-    ob->handler->handle_order_event(type, event);
+    ob->handler->handle_order_event(ob->id, event, ob->handler->user_data);
 }
 
 void _orderbook_handle_trade_event(struct orderbook* ob,
                                    struct trade_event event) {
   if (ob->handler && ob->handler->handle_trade_event)
-    ob->handler->handle_trade_event(event);
+    ob->handler->handle_trade_event(ob->id, event, ob->handler->user_data);
 }
 
 struct orderbook orderbook_new() {
@@ -112,21 +111,24 @@ void orderbook_limit(struct orderbook* ob, struct order _order) {
   }
 
   // Emit an order created event
-  _orderbook_handle_order_event(ob, ORDER_EVENT_TYPE_CREATED,
-                                (struct order_event){
-                                    .order_id = order->order_id,
-                                    .side = order->side,
-                                    .filled_size = 0,
-                                    .cum_filled_size = 0,
-                                    .remaining_size = order->size,
-                                    .price = order->price,
-                                });
+  if (order->cum_filled_size == 0)
+    _orderbook_handle_order_event(ob, (struct order_event){
+                                          .type = ORDER_EVENT_TYPE_CREATED,
+                                          .order_id = order->order_id,
+                                          .side = order->side,
+                                          .filled_size = 0,
+                                          .cum_filled_size = 0,
+                                          .remaining_size = order->size,
+                                          .price = order->price,
+                                      });
 }
 
-uint64_t orderbook_market(struct orderbook* ob,
-                          const uint64_t order_id,
-                          const enum side side,
-                          uint64_t size) {
+uint64_t orderbook_execute(struct orderbook* ob,
+                           const uint64_t order_id,
+                           const enum side side,
+                           const uint64_t size,
+                           uint64_t execute_size,
+                           bool is_market) {
   struct limit_tree* tree;
   switch (side) {
     case SIDE_BID:
@@ -143,51 +145,66 @@ uint64_t orderbook_market(struct orderbook* ob,
   // reject if no liquidity
   if (tree->best == NULL) {
     _orderbook_handle_order_event(
-        ob, ORDER_EVENT_TYPE_REJECTED,
-        (struct order_event){.order_id = order_id,
-                             .side = side,
-                             .filled_size = 0,
-                             .cum_filled_size = 0,
-                             .remaining_size = size,
-                             .price = 0,
-                             .reject_reason = REJECT_REASON_NO_LIQUIDITY});
-    return size;
+        ob, (struct order_event){.type = ORDER_EVENT_TYPE_REJECTED,
+                                 .order_id = order_id,
+                                 .side = side,
+                                 .filled_size = 0,
+                                 .cum_filled_size = 0,
+                                 .remaining_size = execute_size,
+                                 .price = 0,
+                                 .reject_reason = REJECT_REASON_NO_LIQUIDITY});
+    return execute_size;
   }
+
+  // emit order event created
+  if (!is_market)  // TODO: should remove this check, make all market order goes
+                   // through 'created' first
+    _orderbook_handle_order_event(ob, (struct order_event){
+                                          .type = ORDER_EVENT_TYPE_CREATED,
+                                          .order_id = order_id,
+                                          .side = side,
+                                          .filled_size = 0,
+                                          .cum_filled_size = 0,
+                                          .remaining_size = size,
+                                      });
 
   uint64_t cum_filled_size = 0;  // cumulative filled size
 
   // keep matching until no liquidity left or market order is fulfilled
-  while (tree->best != NULL && size > 0) {
+  while (tree->best != NULL && execute_size > 0) {
     struct order* match = tree->best->order_head;  // always match top in queue
-    uint64_t fill_size = MIN(size, match->size);   // fill only available size
+    uint64_t fill_size =
+        MIN(execute_size, match->size);  // fill only available size
 
     // fill order
     match->size -= fill_size;
-    size -= fill_size;
+    execute_size -= fill_size;
     match->cum_filled_size += fill_size;
     cum_filled_size += fill_size;
     tree->best->volume -= fill_size;  // update limit volume
 
     // emit order event for order in book
     _orderbook_handle_order_event(
-        ob,
-        match->size == 0 ? ORDER_EVENT_TYPE_FILLED
-                         : ORDER_EVENT_TYPE_PARTIALLY_FILLED,
-        (struct order_event){.order_id = match->order_id,
-                             .side = match->side,
-                             .filled_size = fill_size,
-                             .cum_filled_size = match->cum_filled_size,
-                             .remaining_size = match->size,
-                             .price = match->price});
+        ob, (struct order_event){
+                .type = match->size == 0 ? ORDER_EVENT_TYPE_FILLED
+                                         : ORDER_EVENT_TYPE_PARTIALLY_FILLED,
+                .order_id = match->order_id,
+                .side = match->side,
+                .filled_size = fill_size,
+                .cum_filled_size = match->cum_filled_size,
+                .remaining_size = match->size,
+                .price = match->price});
     // emit order event for the market order
     _orderbook_handle_order_event(
         ob,
-        size == 0 ? ORDER_EVENT_TYPE_FILLED : ORDER_EVENT_TYPE_PARTIALLY_FILLED,
-        (struct order_event){.order_id = order_id,
+        (struct order_event){.type = (size - cum_filled_size) == 0
+                                         ? ORDER_EVENT_TYPE_FILLED
+                                         : ORDER_EVENT_TYPE_PARTIALLY_FILLED,
+                             .order_id = order_id,
                              .side = side,
                              .filled_size = fill_size,
                              .cum_filled_size = cum_filled_size,
-                             .remaining_size = size,
+                             .remaining_size = size - cum_filled_size,
                              .price = match->price});
     // emit trade event
     _orderbook_handle_trade_event(
@@ -222,17 +239,18 @@ uint64_t orderbook_market(struct orderbook* ob,
   }
 
   // not enough liquidity to fulfill market order
-  if (size > 0)
+  if (is_market && execute_size > 0)
     _orderbook_handle_order_event(
-        ob, ORDER_EVENT_TYPE_PARTIALLY_FILLED_CANCELLED,
-        (struct order_event){.order_id = order_id,
-                             .side = side,
-                             .filled_size = 0,
-                             .cum_filled_size = cum_filled_size,
-                             .remaining_size = size,
-                             .price = 0});
+        ob, (struct order_event){
+                .type = ORDER_EVENT_TYPE_PARTIALLY_FILLED_CANCELLED,
+                .order_id = order_id,
+                .side = side,
+                .filled_size = 0,
+                .cum_filled_size = cum_filled_size,
+                .remaining_size = execute_size,
+                .price = 0});
 
-  return size;
+  return size - cum_filled_size;
 }
 
 enum orderbook_error orderbook_cancel(struct orderbook* ob,
@@ -255,7 +273,8 @@ enum orderbook_error orderbook_cancel(struct orderbook* ob,
   }
   struct order* order = order_metadata->order;
   struct limit* limit = order->limit;
-  struct order_event event = {.order_id = order->order_id,
+  struct order_event event = {.type = ORDER_EVENT_TYPE_CANCELLED,
+                              .order_id = order->order_id,
                               .side = order->side,
                               .filled_size = 0,
                               .cum_filled_size = order->cum_filled_size,
@@ -306,9 +325,8 @@ enum orderbook_error orderbook_cancel(struct orderbook* ob,
   }
 
   free(uint64_hashmap_remove(&ob->order_metadata_map,
-                             order_id));  // remove order metadata
-  _orderbook_handle_order_event(ob, ORDER_EVENT_TYPE_CANCELLED,
-                                event);  // emit order cancelled event
+                             order_id));     // remove order metadata
+  _orderbook_handle_order_event(ob, event);  // emit order cancelled event
 
   return OBERR_OKAY;
 }

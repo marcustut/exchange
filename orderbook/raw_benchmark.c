@@ -11,7 +11,9 @@ struct state {
   size_t messages_len;
 };
 
-void handle_order_event(enum order_event_type type, struct order_event event) {
+void handle_order_event(uint64_t ob_id,
+                        struct order_event event,
+                        void* user_data) {
   // struct timespec start;
   // clock_gettime(CLOCK_MONOTONIC, &start);
 
@@ -57,7 +59,9 @@ void handle_order_event(enum order_event_type type, struct order_event event) {
   // printf(" in %ldns\n", elapsed_ns);
 }
 
-void handle_trade_event(struct trade_event event) {}
+void handle_trade_event(uint64_t ob_id,
+                        struct trade_event event,
+                        void* user_data) {}
 
 struct benchmark_result {
   uint64_t market_elapsed_ns, market_count;
@@ -85,7 +89,8 @@ struct benchmark_result benchmark(struct state* state) {
     switch (message.message_type) {
       case MESSAGE_TYPE_CREATED:
         if (message.price == 0)  // market
-          orderbook_market(ob, message.order_id, message.side, message.size);
+          orderbook_execute(ob, message.order_id, message.side, message.size,
+                            message.size, true);
         else  // limit
           orderbook_limit(ob, (struct order){.order_id = message.order_id,
                                              .side = message.side,
@@ -135,79 +140,50 @@ struct benchmark_result benchmark(struct state* state) {
 #define SAMPLE_SIZE 100
 
 int main() {
-  struct orderbook ob = orderbook_new();
+  struct state state = {.messages_len = get_line_count(DATA),
+                        .messages = parse_messages(DATA)};
 
-  char* str = orderbook_print(&ob);
-  printf("%s\n", str);
+  struct benchmark_result result;
+  uint64_t market_elapsed_ns = 0;
+  uint64_t limit_elapsed_ns = 0;
+  uint64_t cancel_elapsed_ns = 0;
+  uint64_t amend_size_elapsed_ns = 0;
 
-  uint32_t n = 5;
-  struct limit* bids = malloc(sizeof(struct limit) * n);
-  orderbook_top_n(&ob, SIDE_BID, n, bids);
-  for (int i = 0; i < n; i++)
-    printf("%ld ", bids[i].price);
-  printf("\n");
+  for (int i = 0; i < SAMPLE_SIZE; i++) {
+    result = benchmark(&state);
+    market_elapsed_ns += result.market_elapsed_ns;
+    limit_elapsed_ns += result.limit_elapsed_ns;
+    cancel_elapsed_ns += result.cancel_elapsed_ns;
+    amend_size_elapsed_ns += result.amend_size_elapsed_ns;
+    if (i != 0) {
+      market_elapsed_ns /= 2;
+      limit_elapsed_ns /= 2;
+      cancel_elapsed_ns /= 2;
+      amend_size_elapsed_ns /= 2;
+    }
+  }
 
-  orderbook_limit(&ob, (struct order){.order_id = 1,
-                                      .price = 1000,
-                                      .size = 10,
-                                      .cum_filled_size = 0,
-                                      .side = SIDE_BID});
+  uint64_t total_elapsed_ns = market_elapsed_ns + limit_elapsed_ns +
+                              cancel_elapsed_ns + amend_size_elapsed_ns;
 
-  str = orderbook_print(&ob);
-  printf("%s\n", str);
+  printf("Over %d samples,\n", SAMPLE_SIZE);
+  printf("Took %.2fms to process %ld messages\n", total_elapsed_ns * 1e-6,
+         state.messages_len);
+  printf("Took %ldns to process 1 message\n",
+         total_elapsed_ns / state.messages_len);
+  printf("-------------------------------\n");
+  printf("orderbook_market: %ldns/op over %ld calls\n",
+         market_elapsed_ns / result.market_count, result.market_count);
+  printf("orderbook_limit: %ldns/op over %ld calls\n",
+         limit_elapsed_ns / result.limit_count, result.limit_count);
+  printf("orderbook_cancel: %ldns/op over %ld calls\n",
+         cancel_elapsed_ns / result.cancel_count, result.cancel_count);
+  printf("orderbook_amend_size: %ldns/op over %ld calls\n",
+         amend_size_elapsed_ns / result.amend_size_count,
+         result.amend_size_count);
 
-  orderbook_top_n(&ob, SIDE_BID, n, bids);
-  for (int i = 0; i < n; i++)
-    printf("%ld ", bids[i].price);
-  printf("\n");
+  // Deallocate memory
+  free(state.messages);
 
-  free(str);
-  free(bids);
-
-  // struct state state = {.messages_len = get_line_count(DATA),
-  //                       .messages = parse_messages(DATA)};
-
-  // struct benchmark_result result;
-  // uint64_t market_elapsed_ns = 0;
-  // uint64_t limit_elapsed_ns = 0;
-  // uint64_t cancel_elapsed_ns = 0;
-  // uint64_t amend_size_elapsed_ns = 0;
-
-  // for (int i = 0; i < SAMPLE_SIZE; i++) {
-  //   result = benchmark(&state);
-  //   market_elapsed_ns += result.market_elapsed_ns;
-  //   limit_elapsed_ns += result.limit_elapsed_ns;
-  //   cancel_elapsed_ns += result.cancel_elapsed_ns;
-  //   amend_size_elapsed_ns += result.amend_size_elapsed_ns;
-  //   if (i != 0) {
-  //     market_elapsed_ns /= 2;
-  //     limit_elapsed_ns /= 2;
-  //     cancel_elapsed_ns /= 2;
-  //     amend_size_elapsed_ns /= 2;
-  //   }
-  // }
-
-  // uint64_t total_elapsed_ns = market_elapsed_ns + limit_elapsed_ns +
-  //                             cancel_elapsed_ns + amend_size_elapsed_ns;
-
-  // printf("Over %d samples,\n", SAMPLE_SIZE);
-  // printf("Took %.2fms to process %ld messages\n", total_elapsed_ns * 1e-6,
-  //        state.messages_len);
-  // printf("Took %ldns to process 1 message\n",
-  //        total_elapsed_ns / state.messages_len);
-  // printf("-------------------------------\n");
-  // printf("orderbook_market: %ldns/op over %ld calls\n",
-  //        market_elapsed_ns / result.market_count, result.market_count);
-  // printf("orderbook_limit: %ldns/op over %ld calls\n",
-  //        limit_elapsed_ns / result.limit_count, result.limit_count);
-  // printf("orderbook_cancel: %ldns/op over %ld calls\n",
-  //        cancel_elapsed_ns / result.cancel_count, result.cancel_count);
-  // printf("orderbook_amend_size: %ldns/op over %ld calls\n",
-  //        amend_size_elapsed_ns / result.amend_size_count,
-  //        result.amend_size_count);
-
-  // // Deallocate memory
-  // free(state.messages);
-
-  // return 0;
+  return 0;
 }

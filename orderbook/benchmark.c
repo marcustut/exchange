@@ -43,7 +43,8 @@ UBENCH_F(ob_benchmark, process_100k_message) {
     switch (message.message_type) {
       case MESSAGE_TYPE_CREATED:
         if (message.price == 0)  // market
-          orderbook_market(ob, message.order_id, message.side, message.size);
+          orderbook_execute(ob, message.order_id, message.side, message.size,
+                            message.size, true);
         else  // limit
           orderbook_limit(ob, (struct order){.order_id = message.order_id,
                                              .side = message.side,

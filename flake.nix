@@ -3,61 +3,66 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.11";
-
-    utils.url = "github:numtide/flake-utils";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    flake-root.url = "github:srid/flake-root";
   };
 
-  outputs = { nixpkgs, ... }@inputs: inputs.utils.lib.eachSystem [
-    "x86_64-linux"
-    "aarch64-linux"
-    "aarch64-darwin"
-  ]
-    (system:
-      let
-        pkgs = import nixpkgs {
-          inherit system;
-        };
-      in
+  outputs = inputs@{ nixpkgs, flake-parts, ... }:
+    flake-parts.lib.mkFlake { inherit inputs; }
       {
-        devShells.default = pkgs.mkShell rec {
-          name = "exchange";
+        imports = [
+          inputs.flake-root.flakeModule
+        ];
+        systems = [
+          "x86_64-linux"
+          "aarch64-linux"
+          "aarch64-darwin"
+        ];
+        perSystem = { pkgs, lib, config, ... }: {
+          devShells.default = pkgs.mkShell rec {
+            inputsFrom = [ config.flake-root.devShell ];
 
-          # dev tools
-          nativeBuildInputs = with pkgs; [
-            meson # build system
-            ninja # build system
-            cmake # build system
-            pkg-config # packages finder
-            valgrind # memory profiler
-            gdb # GNU debugger
+            name = "exchange";
 
-            cargo # rust build system
-            rustPlatform.bindgenHook # rust bindgen
-          ];
+            # dev tools
+            nativeBuildInputs = with pkgs; [
+              meson # build system
+              ninja # build system
+              cmake # build system
+              pkg-config # packages finder
+              valgrind # memory profiler
+              gdb # GNU debugger
 
-          # libraries
-          buildInputs = with pkgs; [
-            llvmPackages.libclang.lib # clang lib
-            stdenv.cc.libc # libc
-            criterion # unit test framework
-            cjson # JSON parsing
+              cargo # rust build system
+              rustPlatform.bindgenHook # rust bindgen
+            ];
 
-            # lib for dixous (desktop app)
-            openssl
-            glib
-            cairo
-            pango
-            atk
-            gdk-pixbuf
-            libsoup
-            gtk3
-            libappindicator
-            webkitgtk_4_1
-          ];
+            # libraries
+            buildInputs = with pkgs; [
+              llvmPackages.libclang.lib # clang lib
+              stdenv.cc.libc # libc
+              zlib # compression lib
+              criterion # unit test framework
+              cjson # JSON parsing
 
-          shellHook = ''
-            export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib";
-          '';
+              # lib for dixous (desktop app)
+              openssl
+              glib
+              cairo
+              pango
+              atk
+              gdk-pixbuf
+              libsoup
+              gtk3
+              libappindicator
+              webkitgtk_4_1
+            ];
+
+            shellHook = ''
+              export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib";
+              export LD_LIBRARY_PATH="$FLAKE_ROOT/orderbook/build:${pkgs.lib.makeLibraryPath buildInputs}:$LD_LIBRARY_PATH"
+            '';
+          };
         };
-      });
+      };
 }

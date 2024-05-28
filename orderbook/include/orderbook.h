@@ -16,6 +16,7 @@ enum orderbook_error {
 };
 
 struct orderbook {
+  uint64_t id;  // id for this orderbook, helpful when there are many orderbooks
   struct limit_tree* bid;
   struct limit_tree* ask;
   struct uint64_hashmap order_metadata_map;
@@ -45,16 +46,18 @@ void orderbook_free(struct orderbook* ob);
 void orderbook_limit(struct orderbook* ob, struct order order);
 
 /**
- * Place a market order. Always a taker order (reducing volume from the book).
+ * Execute an order. Always a taker order (reducing volume from the book).
  *
- * Note that the function returns a `uint64_t` representing the reamining size
- * that has not been filled. If the market request has been fully filled then
+ * Note that the function returns a `uint64_t` representing the remaining size
+ * that has not been filled. If the execute request has been fully filled then
  * `0` will be returned.
  */
-uint64_t orderbook_market(struct orderbook* ob,
-                          const uint64_t order_id,
-                          const enum side side,
-                          uint64_t size);
+uint64_t orderbook_execute(struct orderbook* ob,
+                           const uint64_t order_id,
+                           const enum side side,
+                           const uint64_t size,
+                           uint64_t execute_size,
+                           bool is_market);
 
 /**
  * Cancel a limit order.
