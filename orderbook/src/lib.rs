@@ -216,7 +216,7 @@ impl Drop for Orderbook {
 
 /// Type of an order event, it is embedded in [`OrderEvent`].
 #[derive(Debug, Clone, Copy)]
-pub enum OrderEventType {
+pub enum OrderStatus {
     Created,
     Cancelled,
     Rejected,
@@ -225,15 +225,15 @@ pub enum OrderEventType {
     PartiallyFilledCancelled,
 }
 
-impl From<ffi::order_event_type> for OrderEventType {
-    fn from(value: ffi::order_event_type) -> Self {
+impl From<ffi::order_status> for OrderStatus {
+    fn from(value: ffi::order_status) -> Self {
         match value {
-            ffi::order_event_type_ORDER_EVENT_TYPE_CREATED => Self::Created,
-            ffi::order_event_type_ORDER_EVENT_TYPE_CANCELLED => Self::Cancelled,
-            ffi::order_event_type_ORDER_EVENT_TYPE_REJECTED => Self::Rejected,
-            ffi::order_event_type_ORDER_EVENT_TYPE_FILLED => Self::Filled,
-            ffi::order_event_type_ORDER_EVENT_TYPE_PARTIALLY_FILLED => Self::PartiallyFilled,
-            ffi::order_event_type_ORDER_EVENT_TYPE_PARTIALLY_FILLED_CANCELLED => {
+            ffi::order_status_ORDER_STATUS_CREATED => Self::Created,
+            ffi::order_status_ORDER_STATUS_CANCELLED => Self::Cancelled,
+            ffi::order_status_ORDER_STATUS_REJECTED => Self::Rejected,
+            ffi::order_status_ORDER_STATUS_FILLED => Self::Filled,
+            ffi::order_status_ORDER_STATUS_PARTIALLY_FILLED => Self::PartiallyFilled,
+            ffi::order_status_ORDER_STATUS_PARTIALLY_FILLED_CANCELLED => {
                 Self::PartiallyFilledCancelled
             }
             _ => unreachable!(),
@@ -244,7 +244,7 @@ impl From<ffi::order_event_type> for OrderEventType {
 /// An event triggered when the status of an order was updated.
 #[derive(Debug, Clone)]
 pub struct OrderEvent {
-    pub status: OrderEventType,
+    pub status: OrderStatus,
     pub order_id: u64,
     pub filled_size: u64,
     pub cum_filled_size: u64,
@@ -257,7 +257,7 @@ pub struct OrderEvent {
 impl From<ffi::order_event> for OrderEvent {
     fn from(value: ffi::order_event) -> Self {
         Self {
-            status: value.type_.into(),
+            status: value.status.into(),
             order_id: value.order_id,
             filled_size: value.filled_size,
             cum_filled_size: value.cum_filled_size,

@@ -9,17 +9,17 @@ enum reject_reason {
   REJECT_REASON_NO_LIQUIDITY
 };
 
-enum order_event_type {
-  ORDER_EVENT_TYPE_CREATED,
-  ORDER_EVENT_TYPE_CANCELLED,
-  ORDER_EVENT_TYPE_REJECTED,
-  ORDER_EVENT_TYPE_FILLED,
-  ORDER_EVENT_TYPE_PARTIALLY_FILLED,
-  ORDER_EVENT_TYPE_PARTIALLY_FILLED_CANCELLED,
+enum order_status {
+  ORDER_STATUS_CREATED,
+  ORDER_STATUS_CANCELLED,
+  ORDER_STATUS_REJECTED,
+  ORDER_STATUS_FILLED,
+  ORDER_STATUS_PARTIALLY_FILLED,
+  ORDER_STATUS_PARTIALLY_FILLED_CANCELLED,
 };
 
 struct order_event {
-  enum order_event_type type;
+  enum order_status status;
   uint64_t order_id, filled_size, cum_filled_size, remaining_size, price;
   enum side side;
   enum reject_reason reject_reason;

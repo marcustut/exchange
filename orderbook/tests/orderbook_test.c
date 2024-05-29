@@ -510,7 +510,7 @@ Test(orderbook,
   orderbook_limit(&ob, order);
 
   cr_assert(eq(events.order_events_len, 1));
-  cr_assert(eq(events.order_events[0].type, ORDER_EVENT_TYPE_CREATED));
+  cr_assert(eq(events.order_events[0].status, ORDER_STATUS_CREATED));
   cr_assert(eq(events.order_events[0].order_id, order.order_id));
   cr_assert(eq(events.order_events[0].side, order.side));
   cr_assert(eq(events.order_events[0].price, order.price));
@@ -533,7 +533,7 @@ Test(orderbook,
 
   cr_assert(eq(events.order_events_len, 2));
 
-  cr_assert(eq(events.order_events[1].type, ORDER_EVENT_TYPE_CANCELLED));
+  cr_assert(eq(events.order_events[1].status, ORDER_STATUS_CANCELLED));
   cr_assert(eq(events.order_events[1].order_id, order.order_id));
   cr_assert(eq(events.order_events[1].side, order.side));
   cr_assert(eq(events.order_events[1].price, order.price));
@@ -550,7 +550,7 @@ Test(orderbook,
 
   cr_assert(eq(events.order_events_len, 1));
 
-  cr_assert(eq(events.order_events[0].type, ORDER_EVENT_TYPE_REJECTED));
+  cr_assert(eq(events.order_events[0].status, ORDER_STATUS_REJECTED));
   cr_assert(eq(events.order_events[0].order_id, 1));
   cr_assert(eq(events.order_events[0].side, SIDE_ASK));
   cr_assert(eq(events.order_events[0].price, 0));
@@ -575,7 +575,7 @@ Test(orderbook,
 
   cr_assert(eq(events.order_events_len, 4));
 
-  cr_assert(eq(events.order_events[1].type, ORDER_EVENT_TYPE_CREATED));
+  cr_assert(eq(events.order_events[1].status, ORDER_STATUS_CREATED));
   cr_assert(eq(events.order_events[1].order_id, 2));
   cr_assert(eq(events.order_events[1].side, SIDE_ASK));
   cr_assert(eq(events.order_events[1].price, order.price));
@@ -583,7 +583,7 @@ Test(orderbook,
   cr_assert(eq(events.order_events[1].cum_filled_size, 0));
   cr_assert(eq(events.order_events[1].remaining_size, order.size));
 
-  cr_assert(eq(events.order_events[2].type, ORDER_EVENT_TYPE_FILLED));
+  cr_assert(eq(events.order_events[2].status, ORDER_STATUS_FILLED));
   cr_assert(eq(events.order_events[2].order_id, order.order_id));
   cr_assert(eq(events.order_events[2].side, order.side));
   cr_assert(eq(events.order_events[2].price, order.price));
@@ -591,7 +591,7 @@ Test(orderbook,
   cr_assert(eq(events.order_events[2].cum_filled_size, order.size));
   cr_assert(eq(events.order_events[2].remaining_size, 0));
 
-  cr_assert(eq(events.order_events[3].type, ORDER_EVENT_TYPE_FILLED));
+  cr_assert(eq(events.order_events[3].status, ORDER_STATUS_FILLED));
   cr_assert(eq(events.order_events[3].order_id, 2));
   cr_assert(eq(events.order_events[3].side, SIDE_ASK));
   cr_assert(eq(events.order_events[3].price, order.price));
@@ -614,7 +614,7 @@ Test(orderbook,
 
   cr_assert(eq(events.order_events_len, 4));
 
-  cr_assert(eq(events.order_events[1].type, ORDER_EVENT_TYPE_CREATED));
+  cr_assert(eq(events.order_events[1].status, ORDER_STATUS_CREATED));
   cr_assert(eq(events.order_events[1].order_id, 2));
   cr_assert(eq(events.order_events[1].side, SIDE_ASK));
   cr_assert(eq(events.order_events[1].price, order.price));
@@ -622,7 +622,7 @@ Test(orderbook,
   cr_assert(eq(events.order_events[1].cum_filled_size, 0));
   cr_assert(eq(events.order_events[1].remaining_size, 1));
 
-  cr_assert(eq(events.order_events[2].type, ORDER_EVENT_TYPE_PARTIALLY_FILLED));
+  cr_assert(eq(events.order_events[2].status, ORDER_STATUS_PARTIALLY_FILLED));
   cr_assert(eq(events.order_events[2].order_id, order.order_id));
   cr_assert(eq(events.order_events[2].side, order.side));
   cr_assert(eq(events.order_events[2].price, order.price));
@@ -630,7 +630,7 @@ Test(orderbook,
   cr_assert(eq(events.order_events[2].cum_filled_size, 1));
   cr_assert(eq(events.order_events[2].remaining_size, 4));
 
-  cr_assert(eq(events.order_events[3].type, ORDER_EVENT_TYPE_FILLED));
+  cr_assert(eq(events.order_events[3].status, ORDER_STATUS_FILLED));
   cr_assert(eq(events.order_events[3].order_id, 2));
   cr_assert(eq(events.order_events[3].side, SIDE_ASK));
   cr_assert(eq(events.order_events[3].price, order.price));
@@ -642,7 +642,7 @@ Test(orderbook,
 
   cr_assert(eq(events.order_events_len, 7));
 
-  cr_assert(eq(events.order_events[4].type, ORDER_EVENT_TYPE_CREATED));
+  cr_assert(eq(events.order_events[4].status, ORDER_STATUS_CREATED));
   cr_assert(eq(events.order_events[4].order_id, 3));
   cr_assert(eq(events.order_events[4].side, SIDE_ASK));
   cr_assert(eq(events.order_events[4].price, order.price));
@@ -650,7 +650,7 @@ Test(orderbook,
   cr_assert(eq(events.order_events[4].cum_filled_size, 0));
   cr_assert(eq(events.order_events[4].remaining_size, 2));
 
-  cr_assert(eq(events.order_events[5].type, ORDER_EVENT_TYPE_PARTIALLY_FILLED));
+  cr_assert(eq(events.order_events[5].status, ORDER_STATUS_PARTIALLY_FILLED));
   cr_assert(eq(events.order_events[5].order_id, order.order_id));
   cr_assert(eq(events.order_events[5].side, order.side));
   cr_assert(eq(events.order_events[5].price, order.price));
@@ -658,7 +658,7 @@ Test(orderbook,
   cr_assert(eq(events.order_events[5].cum_filled_size, 3));
   cr_assert(eq(events.order_events[5].remaining_size, 2));
 
-  cr_assert(eq(events.order_events[6].type, ORDER_EVENT_TYPE_FILLED));
+  cr_assert(eq(events.order_events[6].status, ORDER_STATUS_FILLED));
   cr_assert(eq(events.order_events[6].order_id, 3));
   cr_assert(eq(events.order_events[6].side, SIDE_ASK));
   cr_assert(eq(events.order_events[6].price, order.price));
@@ -670,7 +670,7 @@ Test(orderbook,
 
   cr_assert(eq(events.order_events_len, 10));
 
-  cr_assert(eq(events.order_events[7].type, ORDER_EVENT_TYPE_CREATED));
+  cr_assert(eq(events.order_events[7].status, ORDER_STATUS_CREATED));
   cr_assert(eq(events.order_events[7].order_id, 4));
   cr_assert(eq(events.order_events[7].side, SIDE_ASK));
   cr_assert(eq(events.order_events[7].price, order.price));
@@ -678,7 +678,7 @@ Test(orderbook,
   cr_assert(eq(events.order_events[7].cum_filled_size, 0));
   cr_assert(eq(events.order_events[7].remaining_size, 2));
 
-  cr_assert(eq(events.order_events[8].type, ORDER_EVENT_TYPE_FILLED));
+  cr_assert(eq(events.order_events[8].status, ORDER_STATUS_FILLED));
   cr_assert(eq(events.order_events[8].order_id, order.order_id));
   cr_assert(eq(events.order_events[8].side, order.side));
   cr_assert(eq(events.order_events[8].price, order.price));
@@ -686,7 +686,7 @@ Test(orderbook,
   cr_assert(eq(events.order_events[8].cum_filled_size, 5));
   cr_assert(eq(events.order_events[8].remaining_size, 0));
 
-  cr_assert(eq(events.order_events[9].type, ORDER_EVENT_TYPE_FILLED));
+  cr_assert(eq(events.order_events[9].status, ORDER_STATUS_FILLED));
   cr_assert(eq(events.order_events[9].order_id, 4));
   cr_assert(eq(events.order_events[9].side, SIDE_ASK));
   cr_assert(eq(events.order_events[9].price, order.price));
@@ -712,7 +712,7 @@ Test(orderbook,
 
   cr_assert(eq(events.order_events_len, 5));
 
-  cr_assert(eq(events.order_events[2].type, ORDER_EVENT_TYPE_CREATED));
+  cr_assert(eq(events.order_events[2].status, ORDER_STATUS_CREATED));
   cr_assert(eq(events.order_events[2].order_id, 3));
   cr_assert(eq(events.order_events[2].side, SIDE_ASK));
   cr_assert(eq(events.order_events[2].price, order2.price));
@@ -720,7 +720,7 @@ Test(orderbook,
   cr_assert(eq(events.order_events[2].cum_filled_size, 0));
   cr_assert(eq(events.order_events[2].remaining_size, 1));
 
-  cr_assert(eq(events.order_events[3].type, ORDER_EVENT_TYPE_PARTIALLY_FILLED));
+  cr_assert(eq(events.order_events[3].status, ORDER_STATUS_PARTIALLY_FILLED));
   cr_assert(eq(events.order_events[3].order_id, order2.order_id));
   cr_assert(eq(events.order_events[3].side, order2.side));
   cr_assert(eq(events.order_events[3].price, order2.price));
@@ -728,7 +728,7 @@ Test(orderbook,
   cr_assert(eq(events.order_events[3].cum_filled_size, 1));
   cr_assert(eq(events.order_events[3].remaining_size, 1));
 
-  cr_assert(eq(events.order_events[4].type, ORDER_EVENT_TYPE_FILLED));
+  cr_assert(eq(events.order_events[4].status, ORDER_STATUS_FILLED));
   cr_assert(eq(events.order_events[4].order_id, 3));
   cr_assert(eq(events.order_events[4].side, SIDE_ASK));
   cr_assert(eq(events.order_events[4].price, order2.price));
@@ -740,7 +740,7 @@ Test(orderbook,
 
   cr_assert(eq(events.order_events_len, 10));
 
-  cr_assert(eq(events.order_events[5].type, ORDER_EVENT_TYPE_CREATED));
+  cr_assert(eq(events.order_events[5].status, ORDER_STATUS_CREATED));
   cr_assert(eq(events.order_events[5].order_id, 4));
   cr_assert(eq(events.order_events[5].side, SIDE_ASK));
   cr_assert(eq(events.order_events[5].price, order2.price));
@@ -748,7 +748,7 @@ Test(orderbook,
   cr_assert(eq(events.order_events[5].cum_filled_size, 0));
   cr_assert(eq(events.order_events[5].remaining_size, 2));
 
-  cr_assert(eq(events.order_events[6].type, ORDER_EVENT_TYPE_FILLED));
+  cr_assert(eq(events.order_events[6].status, ORDER_STATUS_FILLED));
   cr_assert(eq(events.order_events[6].order_id, order2.order_id));
   cr_assert(eq(events.order_events[6].side, order2.side));
   cr_assert(eq(events.order_events[6].price, order2.price));
@@ -756,7 +756,7 @@ Test(orderbook,
   cr_assert(eq(events.order_events[6].cum_filled_size, 2));
   cr_assert(eq(events.order_events[6].remaining_size, 0));
 
-  cr_assert(eq(events.order_events[7].type, ORDER_EVENT_TYPE_PARTIALLY_FILLED));
+  cr_assert(eq(events.order_events[7].status, ORDER_STATUS_PARTIALLY_FILLED));
   cr_assert(eq(events.order_events[7].order_id, 4));
   cr_assert(eq(events.order_events[7].side, SIDE_ASK));
   cr_assert(eq(events.order_events[7].price, order2.price));
@@ -764,7 +764,7 @@ Test(orderbook,
   cr_assert(eq(events.order_events[7].cum_filled_size, 1));
   cr_assert(eq(events.order_events[7].remaining_size, 1));
 
-  cr_assert(eq(events.order_events[8].type, ORDER_EVENT_TYPE_PARTIALLY_FILLED));
+  cr_assert(eq(events.order_events[8].status, ORDER_STATUS_PARTIALLY_FILLED));
   cr_assert(eq(events.order_events[8].order_id, order1.order_id));
   cr_assert(eq(events.order_events[8].side, order1.side));
   cr_assert(eq(events.order_events[8].price, order1.price));
@@ -772,7 +772,7 @@ Test(orderbook,
   cr_assert(eq(events.order_events[8].cum_filled_size, 1));
   cr_assert(eq(events.order_events[8].remaining_size, 4));
 
-  cr_assert(eq(events.order_events[9].type, ORDER_EVENT_TYPE_FILLED));
+  cr_assert(eq(events.order_events[9].status, ORDER_STATUS_FILLED));
   cr_assert(eq(events.order_events[9].order_id, 4));
   cr_assert(eq(events.order_events[9].side, SIDE_ASK));
   cr_assert(eq(events.order_events[9].price, order1.price));
@@ -784,7 +784,7 @@ Test(orderbook,
 
   cr_assert(eq(events.order_events_len, 14));
 
-  cr_assert(eq(events.order_events[10].type, ORDER_EVENT_TYPE_CREATED));
+  cr_assert(eq(events.order_events[10].status, ORDER_STATUS_CREATED));
   cr_assert(eq(events.order_events[10].order_id, 5));
   cr_assert(eq(events.order_events[10].side, SIDE_ASK));
   cr_assert(eq(events.order_events[10].price, order1.price));
@@ -792,7 +792,7 @@ Test(orderbook,
   cr_assert(eq(events.order_events[10].cum_filled_size, 0));
   cr_assert(eq(events.order_events[10].remaining_size, 5));
 
-  cr_assert(eq(events.order_events[11].type, ORDER_EVENT_TYPE_FILLED));
+  cr_assert(eq(events.order_events[11].status, ORDER_STATUS_FILLED));
   cr_assert(eq(events.order_events[11].order_id, order1.order_id));
   cr_assert(eq(events.order_events[11].side, order1.side));
   cr_assert(eq(events.order_events[11].price, order1.price));
@@ -800,8 +800,7 @@ Test(orderbook,
   cr_assert(eq(events.order_events[11].cum_filled_size, 5));
   cr_assert(eq(events.order_events[11].remaining_size, 0));
 
-  cr_assert(
-      eq(events.order_events[12].type, ORDER_EVENT_TYPE_PARTIALLY_FILLED));
+  cr_assert(eq(events.order_events[12].status, ORDER_STATUS_PARTIALLY_FILLED));
   cr_assert(eq(events.order_events[12].order_id, 5));
   cr_assert(eq(events.order_events[12].side, SIDE_ASK));
   cr_assert(eq(events.order_events[12].price, order1.price));
@@ -809,8 +808,8 @@ Test(orderbook,
   cr_assert(eq(events.order_events[12].cum_filled_size, 4));
   cr_assert(eq(events.order_events[12].remaining_size, 1));
 
-  cr_assert(eq(events.order_events[13].type,
-               ORDER_EVENT_TYPE_PARTIALLY_FILLED_CANCELLED));
+  cr_assert(eq(events.order_events[13].status,
+               ORDER_STATUS_PARTIALLY_FILLED_CANCELLED));
   cr_assert(eq(events.order_events[13].order_id, 5));
   cr_assert(eq(events.order_events[13].side, SIDE_ASK));
   cr_assert(eq(events.order_events[13].price, 0));
