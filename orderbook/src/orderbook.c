@@ -158,14 +158,15 @@ uint64_t orderbook_execute(struct orderbook* ob,
 
   // emit order event created
   _orderbook_handle_order_event(
-      ob, (struct order_event){
-              .status = ORDER_STATUS_CREATED,
-              .order_id = order_id,
-              .side = side,
-              .filled_size = 0,
-              .cum_filled_size = 0,
-              .remaining_size = size,
-              .price = tree->best != NULL ? tree->best->price : 0});
+      ob,
+      (struct order_event){
+          .status = ORDER_STATUS_CREATED,
+          .order_id = order_id,
+          .side = side,
+          .filled_size = 0,
+          .cum_filled_size = 0,
+          .remaining_size = size,
+          .price = !is_market && tree->best != NULL ? tree->best->price : 0});
 
   uint64_t cum_filled_size = 0;  // cumulative filled size
 

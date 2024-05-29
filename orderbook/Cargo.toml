@@ -15,5 +15,18 @@ libc = "0.2"
 thiserror = "1.0.61"
 rand = { version = "0.8", optional = true }
 
+[dev-dependencies]
+criterion = { version = "0.5" }
+serde = "*"
+serde_json = "*"
+
+[[bench]]
+name = "bench"
+harness = false
+
+[[bench]]
+name = "raw_bench"
+harness = false
+
 [build-dependencies]
 bindgen = "0.69"

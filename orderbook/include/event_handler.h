@@ -23,11 +23,18 @@ struct order_event {
   uint64_t order_id, filled_size, cum_filled_size, remaining_size, price;
   enum side side;
   enum reject_reason reject_reason;
+  // TODO: order_user_data
 };
 
 struct trade_event {
   uint64_t size, price;
   enum side side;  // taker side
+  // TODO: buyer_order_id
+  // TODO: buyer_user_data
+  // TODO: buyer_is_maker
+  // TODO: seller_order_id
+  // TODO: seller_user_data
+  // TODO: seller_is_maker
 };
 
 struct event_handler {

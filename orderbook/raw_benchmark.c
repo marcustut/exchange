@@ -13,51 +13,7 @@ struct state {
 
 void handle_order_event(uint64_t ob_id,
                         struct order_event event,
-                        void* user_data) {
-  // struct timespec start;
-  // clock_gettime(CLOCK_MONOTONIC, &start);
-
-  // switch (type) {
-  //   case ORDER_EVENT_TYPE_CREATED:
-  //     printf("[order_created] %ld at %ld (%ld)", event.order_id, event.price,
-  //            event.remaining_size);
-  //     break;
-  //   case ORDER_EVENT_TYPE_CANCELLED:
-  //     printf("[order_cancelled] %ld at %ld (%ld/%ld)", event.order_id,
-  //            event.price, event.filled_size,
-  //            event.filled_size + event.remaining_size);
-  //     break;
-  //   case ORDER_EVENT_TYPE_FILLED:
-  //     printf("[order_filled] %ld of %ld filled at %ld, %ld remains",
-  //            event.filled_size, event.order_id, event.price,
-  //            event.remaining_size);
-  //     break;
-  //   case ORDER_EVENT_TYPE_PARTIALLY_FILLED:
-  //     printf("[order_partially_filled] %ld of %ld filled at %ld, %ld
-  //     remains",
-  //            event.filled_size, event.order_id, event.price,
-  //            event.remaining_size);
-  //     break;
-  //   case ORDER_EVENT_TYPE_PARTIALLY_FILLED_CANCELLED:
-  //     printf(
-  //         "[order_partially_filled_cancelled] %ld of %ld filled at %ld, %ld "
-  //         "remains",
-  //         event.filled_size, event.order_id, event.price,
-  //         event.remaining_size);
-  //     break;
-  //   default:
-  //     fprintf(stderr, "does not know how to handle order_event_type %d",
-  //     type); break;
-  // }
-
-  // struct timespec end;
-  // clock_gettime(CLOCK_MONOTONIC, &end);
-
-  // uint64_t elapsed_ns =
-  //     (end.tv_sec - start.tv_sec) * 1e9 + (end.tv_nsec - start.tv_nsec);
-
-  // printf(" in %ldns\n", elapsed_ns);
-}
+                        void* user_data) {}
 
 void handle_trade_event(uint64_t ob_id,
                         struct trade_event event,
