@@ -53,6 +53,16 @@ pub enum Side {
     Ask,
 }
 
+#[cfg(feature = "random")]
+impl rand::distributions::Distribution<Side> for rand::distributions::Standard {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Side {
+        match rng.gen_range(0..=1) {
+            0 => Side::Bid,
+            _ => Side::Ask,
+        }
+    }
+}
+
 impl Side {
     pub fn inverse(self) -> Self {
         match self {
@@ -362,6 +372,7 @@ mod tests {
             limit: ptr::null_mut(),
             prev: ptr::null_mut(),
             next: ptr::null_mut(),
+            user_data: ptr::null_mut(),
         });
         assert!(ob
             .best(Side::Bid)
@@ -383,6 +394,7 @@ mod tests {
             limit: ptr::null_mut(),
             prev: ptr::null_mut(),
             next: ptr::null_mut(),
+            user_data: ptr::null_mut(),
         });
         assert_eq!(ob.top_n(Side::Bid, 5).len(), 1);
         ob.cancel(1).unwrap();
@@ -403,6 +415,7 @@ mod tests {
             limit: ptr::null_mut(),
             prev: ptr::null_mut(),
             next: ptr::null_mut(),
+            user_data: ptr::null_mut(),
         });
         size = unsafe { (*(ob.ob.get_mut().bid)).size };
         assert_eq!(size, 1);
@@ -422,6 +435,7 @@ mod tests {
             limit: ptr::null_mut(),
             prev: ptr::null_mut(),
             next: ptr::null_mut(),
+            user_data: ptr::null_mut(),
         });
         size = unsafe { (*(ob.ob.get_mut().bid)).size };
         assert_eq!(size, 1);
@@ -444,6 +458,7 @@ mod tests {
             limit: ptr::null_mut(),
             prev: ptr::null_mut(),
             next: ptr::null_mut(),
+            user_data: ptr::null_mut(),
         });
         size = unsafe { (*(ob.ob.get_mut().bid)).size };
         assert_eq!(size, 1);
@@ -464,6 +479,7 @@ mod tests {
             limit: ptr::null_mut(),
             prev: ptr::null_mut(),
             next: ptr::null_mut(),
+            user_data: ptr::null_mut(),
         });
         let mut order_size = unsafe { (*(*ob.ob.get_mut().bid).best).volume };
         assert_eq!(order_size, 10);

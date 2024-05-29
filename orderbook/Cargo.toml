@@ -3,12 +3,17 @@ name = "orderbook"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+random = ["dep:rand"]
+
 [lib]
 doctest = false
 
 [dependencies]
 libc = "0.2"
 thiserror = "1.0.61"
+rand = { version = "0.8", optional = true }
 
 [build-dependencies]
 bindgen = "0.69"

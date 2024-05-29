@@ -1433,7 +1433,7 @@ dependencies = [
  "cfg-if",
  "futures-core",
  "futures-io",
- "intmap 0.7.1",
+ "intmap",
  "libc",
  "once_cell",
  "rustc_version",
@@ -1448,12 +1448,6 @@ name = "intmap"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae52f28f45ac2bc96edb7714de995cffc174a395fb0abf5bff453587c980d7b9"
-
-[[package]]
-name = "intmap"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee87fd093563344074bacf24faa0bb0227fb6969fb223e922db798516de924d6"
 
 [[package]]
 name = "io-lifetimes"
@@ -1684,8 +1678,10 @@ dependencies = [
 name = "matcher"
 version = "0.1.0"
 dependencies = [
- "intmap 2.0.0",
  "orderbook",
+ "rand 0.8.5",
+ "strum",
+ "strum_macros",
  "thiserror",
 ]
 
@@ -1876,6 +1872,7 @@ version = "0.1.0"
 dependencies = [
  "bindgen",
  "libc",
+ "rand 0.8.5",
  "thiserror",
 ]
 
@@ -2369,6 +2366,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustversion"
+version = "1.0.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "955d28af4278de8121b7ebeb796b6a45735dc01436d898801014aced2773a3d6"
+
+[[package]]
 name = "ryu"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2613,6 +2616,25 @@ dependencies = [
  "phf_shared 0.10.0",
  "proc-macro2",
  "quote",
+]
+
+[[package]]
+name = "strum"
+version = "0.26.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d8cec3501a5194c432b2b7976db6b7d10ec95c253208b45f83f7136aa985e29"
+
+[[package]]
+name = "strum_macros"
+version = "0.26.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6cf59daf282c0a494ba14fd21610a0325f9f90ec9d1231dea26bcb1d696c946"
+dependencies = [
+ "heck 0.4.1",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.66",
 ]
 
 [[package]]

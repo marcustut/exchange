@@ -95,6 +95,7 @@ fn main() {
         limit: null_mut(),
         prev: null_mut(),
         next: null_mut(),
+        user_data: null_mut(),
     });
 
     // Place a market order (take)

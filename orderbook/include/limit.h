@@ -19,6 +19,7 @@ struct order {
   uint64_t cum_filled_size;
   enum side side;
   struct limit* limit;  // backlink to the containing limit
+  void* user_data;      // extra metadata eg. user_id, etc.
 
   // orders are organised as a linked list
   struct order* prev;

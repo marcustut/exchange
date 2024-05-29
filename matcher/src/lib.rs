@@ -1,10 +1,11 @@
-use bookmap::BookMap;
 use orderbook::{ffi, Orderbook};
+use symbol_table::SymbolTable;
 
-mod bookmap;
+pub mod handler;
+mod symbol_table;
 
-pub use bookmap::Symbol;
 pub use orderbook::Side;
+pub use symbol_table::Symbol;
 
 #[derive(Debug, Clone, Copy)]
 pub struct IdGenerator {
@@ -29,13 +30,30 @@ pub struct Order {
     pub side: Side,
 }
 
+impl Order {
+    #[cfg(feature = "random")]
+    pub fn random(
+        price_range: impl rand::distributions::uniform::SampleRange<f64>,
+        size_range: impl rand::distributions::uniform::SampleRange<f64>,
+    ) -> Self {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+
+        Self {
+            price: rng.gen_range(price_range),
+            size: rng.gen_range(size_range),
+            side: rng.gen(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct SymbolMetadata {
     pub price_precision: u8,
     pub size_precision: u8,
 }
 
-struct Book {
+struct SymbolEntry {
     ob: Orderbook,
     metadata: SymbolMetadata,
 }
@@ -54,7 +72,7 @@ pub enum MatcherError {
 /// scope, the event_handler must also be in scope, otherwise stack-use-after-scope might
 /// occur in the underlying C orderbook lib.
 pub struct Matcher<'event_handler> {
-    books: BookMap<Book>,
+    books: SymbolTable<SymbolEntry>,
     order_id_gen: IdGenerator,
     event_handler: &'event_handler mut ffi::event_handler,
 }
@@ -62,7 +80,7 @@ pub struct Matcher<'event_handler> {
 impl<'event_handler> Matcher<'event_handler> {
     pub fn new(event_handler: &'event_handler mut ffi::event_handler) -> Self {
         Self {
-            books: BookMap::with_capacity(1),
+            books: SymbolTable::new(),
             order_id_gen: IdGenerator::new(),
             event_handler,
         }
@@ -72,7 +90,7 @@ impl<'event_handler> Matcher<'event_handler> {
         let ob = Orderbook::new()
             .with_id(symbol as u64)
             .with_event_handler(self.event_handler);
-        self.books.insert(symbol, Book { ob, metadata });
+        self.books.insert(symbol, SymbolEntry { ob, metadata });
     }
 
     pub fn get_orderbook(&self, symbol: Symbol) -> Option<&Orderbook> {
@@ -121,6 +139,7 @@ impl<'event_handler> Matcher<'event_handler> {
                             limit: std::ptr::null_mut(),
                             prev: std::ptr::null_mut(),
                             next: std::ptr::null_mut(),
+                            user_data: std::ptr::null_mut(),
                         });
                     }
                 }
@@ -134,6 +153,7 @@ impl<'event_handler> Matcher<'event_handler> {
                         limit: std::ptr::null_mut(),
                         prev: std::ptr::null_mut(),
                         next: std::ptr::null_mut(),
+                        user_data: std::ptr::null_mut(),
                     });
                 }
             }

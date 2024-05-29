@@ -3,7 +3,13 @@ name = "matcher"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["random"]
+random = ["dep:rand", "orderbook/random"]
+
 [dependencies]
-intmap = "2.0.0"
 orderbook = { path = "../orderbook" }
-thiserror = "1.0.61"
+thiserror = "1.0"
+strum = "0.26"
+strum_macros = "0.26"
+rand = { version = "0.8", optional = true }
