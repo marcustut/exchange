@@ -2,7 +2,9 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use std::{cell::UnsafeCell, ffi::CStr, os::raw::c_void, sync::Arc};
+use std::{cell::UnsafeCell, ffi::CStr, os::raw::c_void};
+
+use libffi::high::{CType, ClosureMut3};
 
 pub mod ffi {
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
@@ -289,10 +291,11 @@ impl From<ffi::trade_event> for TradeEvent {
 
 /// A safe wrapper to help construct [`ffi::event_handler`] with an added feature of allowing
 /// dependency injection through context.
+#[repr(C)]
 pub struct EventHandlerBuilder<Ctx> {
+    order_event_handler: Option<Box<dyn Fn(&mut Ctx, u64, OrderEvent)>>,
+    trade_event_handler: Option<Box<dyn Fn(&mut Ctx, u64, TradeEvent)>>,
     ctx: Ctx,
-    order_event_handler: Option<Arc<dyn Fn(&mut Ctx, u64, OrderEvent)>>,
-    trade_event_handler: Option<Arc<dyn Fn(&mut Ctx, u64, TradeEvent)>>,
 }
 
 impl<Ctx> EventHandlerBuilder<Ctx> {
@@ -304,13 +307,13 @@ impl<Ctx> EventHandlerBuilder<Ctx> {
         }
     }
 
-    pub fn on_order(mut self, handler: Arc<dyn Fn(&mut Ctx, u64, OrderEvent)>) -> Self {
-        self.order_event_handler = Some(handler);
+    pub fn on_order(mut self, handler: impl Fn(&mut Ctx, u64, OrderEvent) + 'static) -> Self {
+        self.order_event_handler = Some(Box::new(handler));
         self
     }
 
-    pub fn on_trade(mut self, handler: Arc<dyn Fn(&mut Ctx, u64, TradeEvent)>) -> Self {
-        self.trade_event_handler = Some(handler);
+    pub fn on_trade(mut self, handler: impl Fn(&mut Ctx, u64, TradeEvent) + 'static) -> Self {
+        self.trade_event_handler = Some(Box::new(handler));
         self
     }
 
@@ -319,38 +322,73 @@ impl<Ctx> EventHandlerBuilder<Ctx> {
     }
 }
 
-unsafe extern "C" fn order_event_cb<Ctx>(
-    ob_id: u64,
-    event: ffi::order_event,
-    user_data: *mut c_void,
-) {
-    let handler = &mut *(user_data as *mut EventHandlerBuilder<Ctx>);
-    if let Some(handle) = &handler.order_event_handler {
-        handle(&mut handler.ctx, ob_id, event.into());
-    }
-}
-
-unsafe extern "C" fn trade_event_cb<Ctx>(
-    ob_id: u64,
-    event: ffi::trade_event,
-    user_data: *mut c_void,
-) {
-    let handler = &mut *(user_data as *mut EventHandlerBuilder<Ctx>);
-    if let Some(handle) = &handler.trade_event_handler {
-        handle(&mut handler.ctx, ob_id, event.into());
-    }
-}
-
 impl<Ctx> From<EventHandlerBuilder<Ctx>> for ffi::event_handler {
-    fn from(mut value: EventHandlerBuilder<Ctx>) -> Self {
+    fn from(value: EventHandlerBuilder<Ctx>) -> Self {
         let mut event_handler = unsafe { ffi::event_handler_new() };
 
-        event_handler.user_data = &mut value as *mut EventHandlerBuilder<Ctx> as *mut c_void;
-        event_handler.handle_order_event = Some(order_event_cb::<Ctx>);
-        event_handler.handle_trade_event = Some(trade_event_cb::<Ctx>);
+        event_handler.user_data = unsafe { std::mem::transmute(Box::pin(value.ctx)) };
+
+        if let Some(handler) = value.order_event_handler {
+            let closure = Box::leak(Box::new(
+                move |ob_id: u64, event: ffi::order_event, user_data: *mut c_void| {
+                    let ctx: *mut Ctx = user_data as *mut Ctx;
+                    handler(unsafe { ctx.as_mut() }.unwrap(), ob_id, event.into());
+                },
+            ));
+            let callback = ClosureMut3::new(closure);
+            let &code = callback.code_ptr();
+            let ptr: unsafe extern "C" fn(u64, ffi::order_event, *mut c_void) =
+                unsafe { std::mem::transmute(code) };
+            std::mem::forget(callback);
+            event_handler.handle_order_event = Some(ptr);
+        }
+
+        if let Some(handler) = value.trade_event_handler {
+            let closure = Box::leak(Box::new(
+                move |ob_id: u64, event: ffi::trade_event, user_data: *mut c_void| {
+                    let ctx = user_data as *mut Ctx;
+                    handler(unsafe { ctx.as_mut() }.unwrap(), ob_id, event.into());
+                },
+            ));
+            let callback = ClosureMut3::new(closure);
+            let &code = callback.code_ptr();
+            let ptr: unsafe extern "C" fn(u64, ffi::trade_event, *mut c_void) =
+                unsafe { std::mem::transmute(code) };
+            std::mem::forget(callback);
+            event_handler.handle_trade_event = Some(ptr);
+        }
 
         event_handler
     }
+}
+
+unsafe impl CType for ffi::order_event {
+    fn reify() -> libffi::high::Type<Self> {
+        libffi::high::Type::make(libffi::middle::Type::structure([
+            libffi::middle::Type::c_uint(), // status
+            libffi::middle::Type::u64(),    // order_id
+            libffi::middle::Type::u64(),    // filled_size
+            libffi::middle::Type::u64(),    // cum_filled_size
+            libffi::middle::Type::u64(),    // remaining_size
+            libffi::middle::Type::u64(),    // price
+            libffi::middle::Type::c_uint(), // side
+            libffi::middle::Type::c_uint(), // reject_reason
+        ]))
+    }
+
+    type RetType = ffi::order_event;
+}
+
+unsafe impl CType for ffi::trade_event {
+    fn reify() -> libffi::high::Type<Self> {
+        libffi::high::Type::make(libffi::middle::Type::structure([
+            libffi::middle::Type::u64(),    // size
+            libffi::middle::Type::u64(),    // price
+            libffi::middle::Type::c_uint(), // side
+        ]))
+    }
+
+    type RetType = ffi::trade_event;
 }
 
 #[cfg(test)]
@@ -358,6 +396,53 @@ mod tests {
     use std::ptr;
 
     use super::*;
+
+    #[test]
+    fn test_layout_event_handler_builder() {
+        const UNINIT: ::std::mem::MaybeUninit<EventHandlerBuilder<()>> =
+            ::std::mem::MaybeUninit::uninit();
+        let ptr = UNINIT.as_ptr();
+        assert_eq!(
+            ::std::mem::size_of::<EventHandlerBuilder<()>>(),
+            32usize,
+            concat!("Size of: ", stringify!(EventHandlerBuilder<()>))
+        );
+        assert_eq!(
+            ::std::mem::align_of::<EventHandlerBuilder<()>>(),
+            8usize,
+            concat!("Alignment of ", stringify!(EventHandlerBuilder<()>))
+        );
+        assert_eq!(
+            unsafe { ::std::ptr::addr_of!((*ptr).order_event_handler) as usize - ptr as usize },
+            0usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(EventHandlerBuilder<()>),
+                "::",
+                stringify!(order_event_handler)
+            )
+        );
+        assert_eq!(
+            unsafe { ::std::ptr::addr_of!((*ptr).trade_event_handler) as usize - ptr as usize },
+            16usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(EventHandlerBuilder<()>),
+                "::",
+                stringify!(trade_event_handler)
+            )
+        );
+        assert_eq!(
+            unsafe { ::std::ptr::addr_of!((*ptr).ctx) as usize - ptr as usize },
+            32usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(EventHandlerBuilder<()>),
+                "::",
+                stringify!(ctx)
+            )
+        );
+    }
 
     #[test]
     fn test_best() {

@@ -1,4 +1,4 @@
-use orderbook::{ffi, Orderbook};
+use orderbook::{ffi, Orderbook, OrderbookError};
 use symbol_table::SymbolTable;
 
 pub mod handler;
@@ -49,6 +49,7 @@ impl Order {
 
 #[derive(Debug, Clone)]
 pub struct SymbolMetadata {
+    pub symbol: String,
     pub price_precision: u8,
     pub size_precision: u8,
 }
@@ -62,6 +63,8 @@ struct SymbolEntry {
 pub enum MatcherError {
     #[error("Symbol {0:?} not found")]
     SymbolNotFound(Symbol),
+    #[error("Orderbook error: {0}")]
+    Orderbook(#[from] OrderbookError),
 }
 
 /// Order matching engine that supports multiple symbols, the matching process is always
@@ -98,6 +101,33 @@ impl<'event_handler> Matcher<'event_handler> {
             None => None,
             Some(book) => Some(&book.ob),
         }
+    }
+
+    pub fn cancel(&mut self, symbol: Symbol, order_id: u64) -> Result<(), MatcherError> {
+        let book = match self.books.get_mut(symbol) {
+            None => return Err(MatcherError::SymbolNotFound(symbol)),
+            Some(book) => book,
+        };
+
+        book.ob.cancel(order_id)?;
+
+        Ok(())
+    }
+
+    pub fn amend_size(
+        &mut self,
+        symbol: Symbol,
+        order_id: u64,
+        size: u64,
+    ) -> Result<(), MatcherError> {
+        let book = match self.books.get_mut(symbol) {
+            None => return Err(MatcherError::SymbolNotFound(symbol)),
+            Some(book) => book,
+        };
+
+        book.ob.amend_size(order_id, size)?;
+
+        Ok(())
     }
 
     pub fn order(&mut self, symbol: Symbol, order: Order) -> Result<(), MatcherError> {

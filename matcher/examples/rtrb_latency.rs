@@ -10,11 +10,10 @@ use rand::Rng;
 use rtrb::RingBuffer;
 use strum::IntoEnumIterator;
 
-const NUM_ORDERS: usize = 10000;
+const NUM_ORDERS: usize = 100000;
 
-static mut TIMETABLE: Lazy<[Option<Instant>; NUM_ORDERS]> =
-    Lazy::new(|| core::array::from_fn(|_| None));
-static mut LATENCIES: Lazy<[u128; NUM_ORDERS]> = Lazy::new(|| [0; NUM_ORDERS]);
+static mut TIMETABLE: Lazy<Vec<Option<Instant>>> = Lazy::new(|| vec![None; NUM_ORDERS]);
+static mut LATENCIES: Lazy<Vec<u128>> = Lazy::new(|| vec![0; NUM_ORDERS]);
 
 struct Context {}
 
@@ -36,7 +35,7 @@ fn event_handler(_ctx: &mut Context, event: Event) {
 }
 
 fn main() {
-    let (tx, rx) = RingBuffer::new(1000);
+    let (tx, rx) = RingBuffer::new(NUM_ORDERS);
 
     // Spawn a dedicated thread to handle the events from the maching engine
     let handle = RtrbHandler::spawn(rx, Context {}, event_handler);

@@ -1,22 +1,21 @@
-use std::sync::Arc;
-
 use matcher::{Matcher, Order, Side, Symbol, SymbolMetadata};
 use orderbook::EventHandlerBuilder;
 
 fn main() {
     let mut handler = EventHandlerBuilder::with_context(())
-        .on_order(Arc::new(|_ctx, ob_id, event| {
+        .on_order(|_ctx, ob_id, event| {
             println!("[{:?}]: {:?}\n", ob_id, event);
-        }))
-        .on_trade(Arc::new(|_ctx, ob_id, event| {
+        })
+        .on_trade(|_ctx, ob_id, event| {
             println!("[{:?}]: {:?}\n", ob_id, event);
-        }))
+        })
         .build();
 
     let mut matcher = Matcher::new(&mut handler);
     matcher.add_symbol(
         Symbol::BTCUSDT,
         SymbolMetadata {
+            symbol: Symbol::BTCUSDT.to_string(),
             price_precision: 2,
             size_precision: 3,
         },

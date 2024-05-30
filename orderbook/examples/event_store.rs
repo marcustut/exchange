@@ -18,6 +18,8 @@ enum Message {
     Trade(TradeEvent),
 }
 
+#[derive(Debug, Clone)]
+#[repr(C)]
 struct Context {
     tx: mpsc::Sender<Message>,
 }
@@ -60,26 +62,26 @@ fn main() {
 
     // Our event handler
     let mut handler = EventHandlerBuilder::with_context(Context { tx: tx.clone() })
-        .on_order(Arc::new(|ctx, ob_id, event| {
-            match ctx.tx.send(Message::Order(event)) {
+        .on_order(
+            |ctx, ob_id, event| match ctx.tx.send(Message::Order(event)) {
                 Ok(_) => {
                     println!("[OB{ob_id}] Sent order msg");
                 }
                 Err(e) => {
                     eprintln!("Failed to send msg: {e}")
                 }
-            }
-        }))
-        .on_trade(Arc::new(|ctx, ob_id, event| {
-            match ctx.tx.send(Message::Trade(event)) {
+            },
+        )
+        .on_trade(
+            |ctx, ob_id, event| match ctx.tx.send(Message::Trade(event)) {
                 Ok(_) => {
                     println!("[OB{ob_id}] Sent trade msg");
                 }
                 Err(e) => {
                     eprintln!("Failed to send msg: {e}")
                 }
-            }
-        }))
+            },
+        )
         .build();
 
     // Make an orderbook with id of 1

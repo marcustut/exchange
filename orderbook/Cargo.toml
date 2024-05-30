@@ -12,6 +12,7 @@ doctest = false
 
 [dependencies]
 libc = "0.2"
+libffi = { git = "https://github.com/marcustut/libffi-rs.git" }
 thiserror = "1.0.61"
 rand = { version = "0.8", optional = true }
 

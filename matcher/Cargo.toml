@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["random"]
+default = ["random", "rtrb"]
 random = ["dep:rand", "orderbook/random"]
+rtrb = ["dep:rtrb"]
 
 [dependencies]
 orderbook = { path = "../orderbook" }
@@ -13,3 +14,5 @@ thiserror = "1.0"
 strum = "0.26"
 strum_macros = "0.26"
 rand = { version = "0.8", optional = true }
+rtrb = { version = "0.3", optional = true }
+once_cell = "1.19.0"
