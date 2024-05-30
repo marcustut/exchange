@@ -1,24 +1,25 @@
+#![cfg(feature = "disruptor")]
+
 use std::time::{Duration, Instant};
 
+use disruptor::{BusySpin, ProcessorSettings, Sequence};
 use matcher::{
-    handler::{Event, Handler, RtrbHandler},
-    Matcher, Order, Symbol, SymbolMetadata,
+    handler::{DisruptorHandler, Event, Handler},
+    Matcher, Order, Side, Symbol, SymbolMetadata,
 };
 use once_cell::sync::Lazy;
-use orderbook::EventHandlerBuilder;
+use orderbook::{EventHandlerBuilder, TradeEvent};
 use rand::Rng;
-use rtrb::RingBuffer;
 use strum::IntoEnumIterator;
 
-const NUM_ORDERS: usize = 10000;
+const NUM_ORDERS: usize = 100000;
 
-static mut TIMETABLE: Lazy<[Option<Instant>; NUM_ORDERS]> =
-    Lazy::new(|| core::array::from_fn(|_| None));
-static mut LATENCIES: Lazy<[u128; NUM_ORDERS]> = Lazy::new(|| [0; NUM_ORDERS]);
+static mut TIMETABLE: Lazy<Vec<Option<Instant>>> = Lazy::new(|| vec![None; NUM_ORDERS]);
+static mut LATENCIES: Lazy<Vec<u128>> = Lazy::new(|| vec![0; NUM_ORDERS]);
 
 struct Context {}
 
-fn event_handler(_ctx: &mut Context, event: Event) {
+fn event_handler(_ctx: &mut Context, event: &Event, _seq: Sequence, _end_of_batch: bool) {
     match event {
         Event::Order { event, .. } => match event.status {
             orderbook::OrderStatus::Created => unsafe {
@@ -36,16 +37,25 @@ fn event_handler(_ctx: &mut Context, event: Event) {
 }
 
 fn main() {
-    let (tx, rx) = RingBuffer::new(1000);
-
-    // Spawn a dedicated thread to handle the events from the maching engine
-    let handle = RtrbHandler::spawn(rx, Context {}, Some(1), event_handler);
+    let factory = || Event::Trade {
+        id: 0,
+        event: TradeEvent {
+            size: 0,
+            price: 0,
+            side: Side::Bid,
+        },
+    };
+    let producer =
+        disruptor::build_single_producer(NUM_ORDERS.next_power_of_two(), factory, BusySpin)
+            .pined_at_core(1)
+            .handle_events_with(DisruptorHandler::handle(Context {}, event_handler))
+            .build();
     std::thread::sleep(Duration::from_millis(1000)); // wait till thread is spawned
 
     // Make a handler for the events
-    let mut handler = EventHandlerBuilder::with_context(RtrbHandler::new(tx))
-        .on_order(RtrbHandler::on_order)
-        .on_trade(RtrbHandler::on_trade)
+    let mut handler = EventHandlerBuilder::with_context(DisruptorHandler::new(producer))
+        .on_order(DisruptorHandler::on_order)
+        .on_trade(DisruptorHandler::on_trade)
         .build();
 
     // Create the matching engine
@@ -79,7 +89,6 @@ fn main() {
 
     // Wait for awhile to let all events to be handled
     std::thread::sleep(Duration::from_millis(1000));
-    handle.shutdown().unwrap();
 
     unsafe {
         for latency in LATENCIES.iter() {

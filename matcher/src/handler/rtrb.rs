@@ -5,21 +5,9 @@ use std::{
     thread,
 };
 
-use super::Handler;
+use super::{Event, Handler};
 
 use rtrb::{Consumer, Producer};
-
-#[derive(Debug, Clone)]
-pub enum Event {
-    Order {
-        id: u64,
-        event: orderbook::OrderEvent,
-    },
-    Trade {
-        id: u64,
-        event: orderbook::TradeEvent,
-    },
-}
 
 pub struct Handle {
     handle: thread::JoinHandle<()>,
@@ -38,7 +26,6 @@ impl Handle {
 }
 
 #[derive(Debug)]
-#[repr(C)]
 pub struct RtrbHandler {
     tx: Producer<Event>,
 }
@@ -51,12 +38,17 @@ impl RtrbHandler {
     pub fn spawn<Ctx: Send + Sync + 'static>(
         mut rx: Consumer<Event>,
         ctx: Ctx,
+        core_id: Option<usize>,
         handler: impl Fn(&mut Ctx, Event) + Send + Sync + 'static,
     ) -> Handle {
         let shutdown = Arc::new(atomic::AtomicBool::new(false));
 
         let _shutdown = shutdown.clone();
         let handle = thread::spawn(move || {
+            if let Some(id) = core_id {
+                core_affinity::set_for_current(core_affinity::CoreId { id });
+            }
+
             let mut ctx = ctx;
             loop {
                 if _shutdown.load(atomic::Ordering::Relaxed) {

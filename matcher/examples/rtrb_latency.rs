@@ -1,3 +1,5 @@
+#![cfg(feature = "rtrb")]
+
 use std::time::{Duration, Instant};
 
 use matcher::{
@@ -38,7 +40,7 @@ fn main() {
     let (tx, rx) = RingBuffer::new(NUM_ORDERS);
 
     // Spawn a dedicated thread to handle the events from the maching engine
-    let handle = RtrbHandler::spawn(rx, Context {}, event_handler);
+    let handle = RtrbHandler::spawn(rx, Context {}, Some(1), event_handler);
     std::thread::sleep(Duration::from_millis(1000)); // wait till thread is spawned
 
     // Make a handler for the events

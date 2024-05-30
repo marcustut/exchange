@@ -291,7 +291,6 @@ impl From<ffi::trade_event> for TradeEvent {
 
 /// A safe wrapper to help construct [`ffi::event_handler`] with an added feature of allowing
 /// dependency injection through context.
-#[repr(C)]
 pub struct EventHandlerBuilder<Ctx> {
     order_event_handler: Option<Box<dyn Fn(&mut Ctx, u64, OrderEvent)>>,
     trade_event_handler: Option<Box<dyn Fn(&mut Ctx, u64, TradeEvent)>>,
@@ -396,53 +395,6 @@ mod tests {
     use std::ptr;
 
     use super::*;
-
-    #[test]
-    fn test_layout_event_handler_builder() {
-        const UNINIT: ::std::mem::MaybeUninit<EventHandlerBuilder<()>> =
-            ::std::mem::MaybeUninit::uninit();
-        let ptr = UNINIT.as_ptr();
-        assert_eq!(
-            ::std::mem::size_of::<EventHandlerBuilder<()>>(),
-            32usize,
-            concat!("Size of: ", stringify!(EventHandlerBuilder<()>))
-        );
-        assert_eq!(
-            ::std::mem::align_of::<EventHandlerBuilder<()>>(),
-            8usize,
-            concat!("Alignment of ", stringify!(EventHandlerBuilder<()>))
-        );
-        assert_eq!(
-            unsafe { ::std::ptr::addr_of!((*ptr).order_event_handler) as usize - ptr as usize },
-            0usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(EventHandlerBuilder<()>),
-                "::",
-                stringify!(order_event_handler)
-            )
-        );
-        assert_eq!(
-            unsafe { ::std::ptr::addr_of!((*ptr).trade_event_handler) as usize - ptr as usize },
-            16usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(EventHandlerBuilder<()>),
-                "::",
-                stringify!(trade_event_handler)
-            )
-        );
-        assert_eq!(
-            unsafe { ::std::ptr::addr_of!((*ptr).ctx) as usize - ptr as usize },
-            32usize,
-            concat!(
-                "Offset of field: ",
-                stringify!(EventHandlerBuilder<()>),
-                "::",
-                stringify!(ctx)
-            )
-        );
-    }
 
     #[test]
     fn test_best() {
