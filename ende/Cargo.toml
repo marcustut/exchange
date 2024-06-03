@@ -1,0 +1,11 @@
+[package]
+name = "ende"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sbe = { path = "../sbe" }
+matcher = { path = "../matcher" }
+intmap = "2.0"
+thiserror = "1.0"
+chrono = "0.4"

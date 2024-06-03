@@ -37,7 +37,7 @@ fn event_handler(_ctx: &mut Context, event: Event) {
 }
 
 fn main() {
-    let (tx, rx) = RingBuffer::new(NUM_ORDERS);
+    let (tx, rx) = RingBuffer::new(NUM_ORDERS.next_power_of_two());
 
     // Spawn a dedicated thread to handle the events from the maching engine
     let handle = RtrbHandler::spawn(rx, Context {}, Some(1), event_handler);

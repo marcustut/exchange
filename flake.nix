@@ -40,10 +40,13 @@
             # libraries
             buildInputs = with pkgs; [
               llvmPackages.libclang.lib # clang lib
-              stdenv.cc.libc # libc
               zlib # compression lib
               criterion # unit test framework
               cjson # JSON parsing
+
+              # for uwebsockets
+              libstdcxx5
+              libuv
 
               # lib for dixous (desktop app)
               openssl

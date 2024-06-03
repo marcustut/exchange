@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sbe:messageSchema xmlns:sbe="http://fixprotocol.io/2016/sbe"
+                   xmlns:xi="http://www.w3.org/2001/XInclude"
+                   package="sbe"
+                   id="2"
+                   version="0"
+                   semanticVersion="5.2"
+                   description="Exchange SBE Message Schema"
+                   byteOrder="littleEndian">
+    <types>
+        <composite name="messageHeader" description="Template ID and length of message root">
+            <type name="blockLength" primitiveType="uint16"/>
+            <type name="templateId" primitiveType="uint16"/>
+            <type name="schemaId" primitiveType="uint16"/>
+            <type name="version" primitiveType="uint16"/>
+        </composite>
+
+        <composite name="groupSizeEncoding" description="Repeating group dimensions.">
+            <type name="blockLength" primitiveType="uint16"/>
+            <type name="numInGroup" primitiveType="uint16"/>
+        </composite>
+
+        <composite name="varString" description="Variable length UTF-8 string.">
+            <type name="length" primitiveType="uint16"/>
+            <type name="varData" length="0" primitiveType="uint8" characterEncoding="UTF-8"/>
+        </composite>
+
+        <composite name="varString8" description="Variable length UTF-8 string.">
+            <type name="length" primitiveType="uint8"/>
+            <type name="varData" length="0" primitiveType="uint8" characterEncoding="UTF-8"/>
+        </composite>
+
+        <composite name="optionalVarString" description="Variable length UTF-8 string where an empty string means null.">
+            <type name="length" primitiveType="uint16"/>
+            <type name="varData" length="0" primitiveType="uint8" characterEncoding="UTF-8"/>
+        </composite>
+
+        <composite name="optionalVarString8" description="Variable length UTF-8 string where an empty string means null.">
+            <type name="length" primitiveType="uint8"/>
+            <type name="varData" length="0" primitiveType="uint8" characterEncoding="UTF-8"/>
+        </composite>
+
+        <composite name="messageData" description="Message header plus SBE-encoded message.">
+            <type name="length" primitiveType="uint32" maxValue="2147483647"/>
+            <type name="varData" length="0" primitiveType="uint8"/>
+        </composite>
+
+        <composite name="messageData16" description="Message header plus SBE-encoded message.">
+            <type name="length" primitiveType="uint16"/>
+            <type name="varData" length="0" primitiveType="uint8"/>
+        </composite>
+
+        <composite name="messageData8" description="Message header plus SBE-encoded message.">
+            <type name="length" primitiveType="uint8"/>
+            <type name="varData" length="0" primitiveType="uint8"/>
+        </composite>
+
+        <composite name="optionalMessageData" description="Message header plus SBE-encoded message where 0-length means null.">
+            <type name="length" primitiveType="uint32" maxValue="2147483647"/>
+            <type name="varData" length="0" primitiveType="uint8"/>
+        </composite>
+
+        <composite name="optionalMessageData16" description="Message header plus SBE-encoded message where 0-length means null.">
+            <type name="length" primitiveType="uint16"/>
+            <type name="varData" length="0" primitiveType="uint8"/>
+        </composite>
+
+        <type name="orderId" primitiveType="uint64"/>
+        <type name="tradeId" primitiveType="uint64"/>
+        <type name="symbolId" primitiveType="uint64"/>
+        <type name="utcTimestampNs" primitiveType="int64" description="UTC timestamp in nanoseconds"/>
+
+        <enum name="boolEnum" encodingType="uint8">
+            <validValue name="False">0</validValue>
+            <validValue name="True">1</validValue>
+        </enum>
+
+        <enum name="orderType" encodingType="uint8">
+            <validValue name="Market" mbx:jsonValue="MARKET">0</validValue>
+            <validValue name="Limit" mbx:jsonValue="LIMIT">1</validValue>
+            <validValue name="StopLoss" mbx:jsonValue="STOP_LOSS">2</validValue>
+            <validValue name="StopLossLimit" mbx:jsonValue="STOP_LOSS_LIMIT">3</validValue>
+            <validValue name="TakeProfit" mbx:jsonValue="TAKE_PROFIT">4</validValue>
+            <validValue name="TakeProfitLimit" mbx:jsonValue="TAKE_PROFIT_LIMIT">5</validValue>
+            <validValue name="LimitMaker" mbx:jsonValue="LIMIT_MAKER">6</validValue>
+        </enum>
+
+        <enum name="orderStatus" encodingType="uint8">
+            <validValue name="New" mbx:jsonValue="NEW">0</validValue>
+            <validValue name="PartiallyFilled" mbx:jsonValue="PARTIALLY_FILLED">1</validValue>
+            <validValue name="Filled" mbx:jsonValue="FILLED">2</validValue>
+            <validValue name="Canceled" mbx:jsonValue="CANCELED">3</validValue>
+            <validValue name="PendingCancel" mbx:jsonValue="PENDING_CANCEL">4</validValue>
+            <validValue name="Rejected" mbx:jsonValue="REJECTED">5</validValue>
+            <validValue name="Expired" mbx:jsonValue="EXPIRED">6</validValue>
+            <validValue name="ExpiredInMatch" mbx:jsonValue="EXPIRED_IN_MATCH">9</validValue>
+            <validValue name="PendingNew" mbx:jsonValue="PENDING_NEW">11</validValue>
+            <validValue name="Unknown" mbx:jsonValue="UNKNOWN">254</validValue>
+        </enum>
+
+        <enum name="side" encodingType="uint8">
+            <validValue name="Buy" mbx:jsonValue="BUY">0</validValue>
+            <validValue name="Sell" mbx:jsonValue="SELL">1</validValue>
+        </enum>
+
+        <enum name="timeInForce" encodingType="uint8">
+            <validValue name="Gtc" mbx:jsonValue="GTC">0</validValue>
+            <validValue name="Ioc" mbx:jsonValue="IOC">1</validValue>
+            <validValue name="Fok" mbx:jsonValue="FOK">2</validValue>
+        </enum>
+    </types>
+
+    <!-- General endpoints -->
+    <!-- Response for
+        - REST GET /api/v3/ping
+        - WebSocket "method":"ping" -->
+    <sbe:message name="PingResponse" id="101">
+    </sbe:message>
+
+    <!-- Response for
+        - REST GET /api/v3/time
+        - WebSocket "method":"time" -->
+    <sbe:message name="ServerTimeResponse" id="102">
+        <field id="1" name="serverTime" type="utcTimestampNs"/>
+    </sbe:message>
+
+    <!-- Market data endpoint -->
+    <!-- Response for
+        - REST GET /api/v3/depth
+        - WebSocket "method":"depth" -->
+    <!-- <sbe:message name="DepthResponse" id="200"> -->
+    <!--     <field id="1" name="lastUpdateId" type="updateId"/> -->
+    <!--     <field id="2" name="priceExponent" type="exponent8"/> -->
+    <!--     <field id="3" name="qtyExponent" type="exponent8"/> -->
+    <!--     <group id="100" name="bids"> -->
+    <!--         <field id="1" name="price" type="mantissa64" mbx:exponent="priceExponent" mbx:jsonPath="[]"/> -->
+    <!--         <field id="2" name="qty" type="mantissa64" mbx:exponent="qtyExponent" mbx:jsonPath="[]"/> -->
+    <!--     </group> -->
+    <!--     <group id="101" name="asks"> -->
+    <!--         <field id="1" name="price" type="mantissa64" mbx:exponent="priceExponent" mbx:jsonPath="[]"/> -->
+    <!--         <field id="2" name="qty" type="mantissa64" mbx:exponent="qtyExponent" mbx:jsonPath="[]"/> -->
+    <!--     </group> -->
+    <!-- </sbe:message> -->
+
+    <!-- Response for
+        - REST GET /api/v3/trades
+        - REST GET /api/v3/historicalTrades
+        - WebSocket "method":"trades.recent"
+        - WebSocket "method":"trades.historical" -->
+    <sbe:message name="Trade" id="201">
+        <field id="1" name="tradeId" type="tradeId"/>
+        <field id="2" name="symbolId" type="symbolId"/>
+        <field id="3" name="price" type="uint64"/>
+        <field id="4" name="size" type="uint64"/>
+        <field id="5" name="takerSide" type="side"/> <!-- side of taker -->
+        <field id="6" name="buyerOrderId" type="orderId"/> 
+        <field id="7" name="sellerOrderId" type="orderId"/> 
+        <field id="8" name="time" type="utcTimestampNs"/>
+    </sbe:message>
+
+    <!-- Response for
+        - REST GET /api/v3/aggTrades
+        - WebSocket "method":"trades.aggregate" -->
+    <!--<sbe:message name="AggTradesResponse" id="202">-->
+    <!--    <field id="1" name="priceExponent" type="exponent8"/>-->
+    <!--    <field id="2" name="qtyExponent" type="exponent8"/>-->
+    <!--    <group id="100" name="aggTrades" mbx:jsonPath="..">-->
+    <!--        <field id="1" name="aggTradeId" type="aggTradeId" mbx:jsonPath="a"/>-->
+    <!--        <field id="2" name="price" type="mantissa64" mbx:exponent="priceExponent" mbx:jsonPath="p"/>-->
+    <!--        <field id="3" name="qty" type="mantissa64" mbx:exponent="qtyExponent" mbx:jsonPath="q"/>-->
+    <!--        <field id="4" name="firstTradeId" type="tradeId" mbx:jsonPath="f"/>-->
+    <!--        <field id="5" name="lastTradeId" type="tradeId" mbx:jsonPath="l"/>-->
+    <!--        <field id="7" name="time" type="utcTimestampNs" mbx:jsonPath="T"/>-->
+    <!--        <field id="8" name="isBuyerMaker" type="boolEnum" mbx:jsonPath="m"/>-->
+    <!--        <field id="9" name="isBestMatch" type="boolEnum" mbx:jsonPath="M"/>-->
+    <!--    </group>-->
+    <!--</sbe:message>-->
+</sbe:messageSchema>

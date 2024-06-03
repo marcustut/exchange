@@ -29,13 +29,21 @@ impl Handler for DisruptorHandler {
 
     fn on_order(ctx: &mut Self::Ctx, id: u64, event: orderbook::OrderEvent) {
         ctx.tx.publish(|e| {
-            *e = Event::Order { id, event };
+            *e = Event::Order {
+                id,
+                event,
+                timestamp: chrono::Utc::now(),
+            };
         })
     }
 
     fn on_trade(ctx: &mut Self::Ctx, id: u64, event: orderbook::TradeEvent) {
         ctx.tx.publish(|e| {
-            *e = Event::Trade { id, event };
+            *e = Event::Trade {
+                id,
+                event,
+                timestamp: chrono::Utc::now(),
+            };
         })
     }
 }

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "limit.h"
 #include "order_metadata.h"
 
 #define MIN(a, b)           \
@@ -206,9 +207,12 @@ uint64_t orderbook_execute(struct orderbook* ob,
                                  .remaining_size = size - cum_filled_size,
                                  .price = match->price});
     // emit trade event
-    _orderbook_handle_trade_event(
-        ob, (struct trade_event){
-                .size = fill_size, .side = side, .price = match->price});
+    _orderbook_handle_trade_event(ob,
+                                  (struct trade_event){.size = fill_size,
+                                                       .side = side,
+                                                       .price = match->price,
+                                                       .buyer_order_id = side == SIDE_BID ? order_id : match->order_id,
+                                                       .seller_order_id = side == SIDE_BID ? match->order_id : order_id});
 
     if (match->size == 0) {  // order in book is fully filled
 

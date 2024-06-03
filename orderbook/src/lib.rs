@@ -32,7 +32,7 @@ impl From<ffi::orderbook_error> for OrderbookError {
 }
 
 /// Reason for rejection if an order is rejected, this data is embedded in [`OrderEvent`].
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RejectReason {
     NoError,
     NoLiquidity,
@@ -49,7 +49,7 @@ impl From<ffi::reject_reason> for RejectReason {
 }
 
 /// Order side
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Side {
     Bid,
     Ask,
@@ -217,7 +217,7 @@ impl Drop for Orderbook {
 }
 
 /// Type of an order event, it is embedded in [`OrderEvent`].
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum OrderStatus {
     Created,
     Cancelled,
@@ -244,7 +244,7 @@ impl From<ffi::order_status> for OrderStatus {
 }
 
 /// An event triggered when the status of an order was updated.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct OrderEvent {
     pub status: OrderStatus,
     pub order_id: u64,
@@ -272,11 +272,13 @@ impl From<ffi::order_event> for OrderEvent {
 }
 
 // An event triggered when a trade occurs.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TradeEvent {
     pub size: u64,
     pub price: u64,
     pub side: Side,
+    pub buyer_order_id: u64,
+    pub seller_order_id: u64,
 }
 
 impl From<ffi::trade_event> for TradeEvent {
@@ -285,6 +287,8 @@ impl From<ffi::trade_event> for TradeEvent {
             size: value.size,
             price: value.price,
             side: value.side.into(),
+            buyer_order_id: value.buyer_order_id,
+            seller_order_id: value.seller_order_id,
         }
     }
 }

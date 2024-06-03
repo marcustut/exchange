@@ -16,10 +16,12 @@ pub enum Event {
     Order {
         id: u64,
         event: orderbook::OrderEvent,
+        timestamp: chrono::DateTime<chrono::Utc>,
     },
     Trade {
         id: u64,
         event: orderbook::TradeEvent,
+        timestamp: chrono::DateTime<chrono::Utc>,
     },
 }
 

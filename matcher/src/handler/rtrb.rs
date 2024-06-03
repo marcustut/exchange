@@ -72,14 +72,22 @@ impl Handler for RtrbHandler {
     type Ctx = Self;
 
     fn on_order(ctx: &mut Self::Ctx, id: u64, event: orderbook::OrderEvent) {
-        match ctx.tx.push(Event::Order { id, event }) {
+        match ctx.tx.push(Event::Order {
+            id,
+            event,
+            timestamp: chrono::Utc::now(),
+        }) {
             Ok(_) => {}
             Err(e) => eprintln!("rtrb is full: {}", e),
         }
     }
 
     fn on_trade(ctx: &mut Self::Ctx, id: u64, event: orderbook::TradeEvent) {
-        match ctx.tx.push(Event::Trade { id, event }) {
+        match ctx.tx.push(Event::Trade {
+            id,
+            event,
+            timestamp: chrono::Utc::now(),
+        }) {
             Ok(_) => {}
             Err(e) => eprintln!("rtrb is full: {}", e),
         }

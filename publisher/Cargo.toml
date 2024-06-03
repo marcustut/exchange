@@ -1,0 +1,15 @@
+[package]
+name = "publisher"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+matcher = { path = "../matcher" }
+sbe = { path = "../sbe" }
+ende = { path = "../ende" }
+
+tokio = { version = "*", features = ["full"] }
+rtrb = "0.3"
+uwebsockets_rs = "0.0.11"

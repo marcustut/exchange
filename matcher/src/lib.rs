@@ -1,11 +1,10 @@
 use orderbook::{ffi, Orderbook, OrderbookError};
-use symbol_table::SymbolTable;
 
 pub mod handler;
 mod symbol_table;
 
-pub use orderbook::Side;
-pub use symbol_table::Symbol;
+pub use orderbook::{EventHandlerBuilder, OrderEvent, Side, TradeEvent};
+pub use symbol_table::{Symbol, SymbolTable};
 
 #[derive(Debug, Clone, Copy)]
 pub struct IdGenerator {

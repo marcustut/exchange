@@ -43,7 +43,10 @@ fn main() {
             size: 0,
             price: 0,
             side: Side::Bid,
+            buyer_order_id: 0,
+            seller_order_id: 0,
         },
+        timestamp: chrono::Utc::now(),
     };
     let producer =
         disruptor::build_single_producer(NUM_ORDERS.next_power_of_two(), factory, BusySpin)

@@ -29,12 +29,9 @@ struct order_event {
 struct trade_event {
   uint64_t size, price;
   enum side side;  // taker side
-  // TODO: buyer_order_id
+  uint64_t buyer_order_id, seller_order_id;
   // TODO: buyer_user_data
-  // TODO: buyer_is_maker
-  // TODO: seller_order_id
   // TODO: seller_user_data
-  // TODO: seller_is_maker
 };
 
 struct event_handler {
