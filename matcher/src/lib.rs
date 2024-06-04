@@ -102,6 +102,14 @@ impl<'event_handler> Matcher<'event_handler> {
         }
     }
 
+    pub fn get_symbol_table(&self) -> Vec<(u64, &SymbolMetadata)> {
+        self.books
+            .table
+            .iter()
+            .filter_map(|entry| entry.as_ref().map(|e| (0u64, &e.metadata)))
+            .collect::<Vec<_>>()
+    }
+
     pub fn cancel(&mut self, symbol: Symbol, order_id: u64) -> Result<(), MatcherError> {
         let book = match self.books.get_mut(symbol) {
             None => return Err(MatcherError::SymbolNotFound(symbol)),

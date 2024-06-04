@@ -51,6 +51,8 @@ impl RtrbHandler {
 
             let mut ctx = ctx;
             loop {
+                // NOTE: This is stupid, it incurs additional overhead in a busy-spin thread (there
+                // is better way to do this where maybe we only check shutdown every few iterations)
                 if _shutdown.load(atomic::Ordering::Relaxed) {
                     // println!("Shutting down rtrb consumer");
                     break;

@@ -1,5 +1,5 @@
 [package]
-name = "publisher"
+name = "gateway"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,6 +10,13 @@ matcher = { path = "../matcher" }
 sbe = { path = "../sbe" }
 ende = { path = "../ende" }
 
-tokio = { version = "*", features = ["full"] }
 rtrb = "0.3"
-uwebsockets_rs = "0.0.11"
+
+# Async
+tokio = { version = "1.38", features = ["full"] }
+futures = { version = "0.3" }
+
+# Axum
+axum = { version = "0.7", features = ["ws"] }
+axum-extra = { version = "0.9", features = ["typed-header"] }
+headers = "0.4"

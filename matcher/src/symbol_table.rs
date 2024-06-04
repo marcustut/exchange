@@ -18,7 +18,7 @@ impl rand::distributions::Distribution<Symbol> for rand::distributions::Standard
 
 #[derive(Debug)]
 pub struct SymbolTable<V> {
-    table: [Option<V>; Symbol::COUNT],
+    pub(crate) table: [Option<V>; Symbol::COUNT],
 }
 
 impl<V> SymbolTable<V> {
