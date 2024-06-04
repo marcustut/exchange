@@ -9,3 +9,8 @@ pub struct Trade {
     pub sell_order_id: u64,
     pub timestamp: i64,
 }
+
+#[derive(Debug, Clone)]
+pub enum Message {
+    Trade(Trade),
+}

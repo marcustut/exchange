@@ -3,8 +3,6 @@ name = "gateway"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 matcher = { path = "../matcher" }
 sbe = { path = "../sbe" }
@@ -20,3 +18,7 @@ futures = { version = "0.3" }
 axum = { version = "0.7", features = ["ws"] }
 axum-extra = { version = "0.9", features = ["typed-header"] }
 headers = "0.4"
+
+[dev-dependencies]
+tokio-tungstenite = "0.23"
+futures-util = "0.3"

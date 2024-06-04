@@ -1,27 +1,48 @@
-use std::{borrow::Cow, net::SocketAddr, ops::ControlFlow};
+use std::{net::SocketAddr, ops::ControlFlow};
 
 use axum::{
     extract::{
         connect_info::ConnectInfo,
-        ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade},
+        ws::{Message, WebSocket, WebSocketUpgrade},
+        State,
     },
     response::IntoResponse,
     routing::get,
     Router,
 };
 use axum_extra::TypedHeader;
+use ende::TryEncodeWithCtx;
 use futures::{sink::SinkExt, stream::StreamExt};
-use tokio::net::ToSocketAddrs;
+use tokio::{
+    net::{TcpListener, ToSocketAddrs},
+    sync::broadcast::{error::RecvError, Receiver},
+};
 
-pub async fn spawn<A>(addr: A) -> Result<(), std::io::Error>
+use matcher::{handler::Event, Symbol};
+
+struct AppState {
+    rx: Receiver<Event>,
+}
+
+impl Clone for AppState {
+    fn clone(&self) -> Self {
+        Self {
+            rx: self.rx.resubscribe(),
+        }
+    }
+}
+
+pub async fn spawn<A>(addr: A, rx: Receiver<Event>) -> Result<(), std::io::Error>
 where
     A: ToSocketAddrs,
 {
-    let app = Router::new().route("/ws", get(ws_handler));
+    let app = Router::new()
+        .route("/ws", get(ws_handler))
+        .with_state(AppState { rx });
 
     // run it with hyper
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    println!("listening on {}", listener.local_addr().unwrap());
+    let listener = TcpListener::bind(addr).await?;
+    println!("listening on {}", listener.local_addr()?);
     axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
@@ -38,6 +59,7 @@ async fn ws_handler(
     ws: WebSocketUpgrade,
     user_agent: Option<TypedHeader<headers::UserAgent>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    State(AppState { rx }): State<AppState>,
 ) -> impl IntoResponse {
     let user_agent = if let Some(TypedHeader(user_agent)) = user_agent {
         user_agent.to_string()
@@ -47,11 +69,13 @@ async fn ws_handler(
     println!("`{user_agent}` at {addr} connected.");
     // finalize the upgrade process by returning upgrade callback.
     // we can customize the callback by sending additional info such as address.
-    ws.on_upgrade(move |socket| handle_socket(socket, addr))
+    ws.on_upgrade(move |socket| handle_socket(socket, addr, rx))
 }
 
 /// Actual websocket statemachine (one will be spawned per connection)
-async fn handle_socket(mut socket: WebSocket, who: SocketAddr) {
+async fn handle_socket(mut socket: WebSocket, who: SocketAddr, mut rx: Receiver<Event>) {
+    let encoder = ende::Encoder::new();
+
     // send a ping (unsupported by some browsers) just to kick things off and get a response
     if socket.send(Message::Ping(vec![1, 2, 3])).await.is_ok() {
         println!("Pinged {who}...");
@@ -77,80 +101,90 @@ async fn handle_socket(mut socket: WebSocket, who: SocketAddr) {
         }
     }
 
-    // Since each client gets individual statemachine, we can pause handling
-    // when necessary to wait for some external event (in this case illustrated by sleeping).
-    // Waiting for this client to finish getting its greetings does not prevent other clients from
-    // connecting to server and receiving their greetings.
-    for i in 1..5 {
-        if socket
-            .send(Message::Text(format!("Hi {i} times!")))
-            .await
-            .is_err()
-        {
-            println!("client {who} abruptly disconnected");
-            return;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    // Send a welcome message to the client
+    if socket
+        .send(Message::Text(format!("Welcome to exchange")))
+        .await
+        .is_err()
+    {
+        println!("client {who} abruptly disconnected");
+        return;
     }
 
     // By splitting socket we can send and receive at the same time. In this example we will send
     // unsolicited messages to client based on some sort of server's internal event (i.e .timer).
     let (mut sender, mut receiver) = socket.split();
 
-    // Spawn a task that will push several messages to the client (does not matter what client does)
+    // Spawn a task to push events to client
     let mut send_task = tokio::spawn(async move {
-        let n_msg = 20;
-        for i in 0..n_msg {
-            // In case of any websocket error, we exit.
-            if sender
-                .send(Message::Text(format!("Server message {i} ...")))
-                .await
-                .is_err()
-            {
-                return i;
+        loop {
+            match rx.recv().await {
+                Ok(Event::Trade {
+                    ob_id,
+                    trade_id,
+                    event,
+                    timestamp,
+                }) => {
+                    let bytes = encoder
+                        .try_encode(
+                            &event,
+                            (
+                                trade_id,
+                                Symbol::from_repr(ob_id).expect("should not fail"),
+                                timestamp,
+                            ),
+                        )
+                        .expect("should not fail");
+
+                    // In case of any websocket error, we exit.
+                    if sender.send(Message::Binary(bytes)).await.is_err() {
+                        return ();
+                    }
+                }
+                Ok(Event::Order {
+                    ob_id,
+                    event,
+                    timestamp,
+                }) =>
+                // In case of any websocket error, we exit.
+                {
+                    // if sender
+                    //     .send(Message::Text(format!("Order event {id} at {timestamp}")))
+                    //     .await
+                    //     .is_err()
+                    // {
+                    //     return ();
+                    // }
+                }
+                Err(RecvError::Closed) => return (),
+                Err(RecvError::Lagged(_)) => continue,
             }
-
-            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
         }
-
-        println!("Sending close to {who}...");
-        if let Err(e) = sender
-            .send(Message::Close(Some(CloseFrame {
-                code: axum::extract::ws::close_code::NORMAL,
-                reason: Cow::from("Goodbye"),
-            })))
-            .await
-        {
-            println!("Could not send Close due to {e}, probably it is ok?");
-        }
-        n_msg
     });
 
     // This second task will receive messages from client and print them on server console
     let mut recv_task = tokio::spawn(async move {
-        let mut cnt = 0;
         while let Some(Ok(msg)) = receiver.next().await {
-            cnt += 1;
-            // print message and break if instructed to do so
+            // TODO: should add to subscription
             if process_message(msg, who).is_break() {
                 break;
             }
         }
-        cnt
+        ()
     });
 
     // If any one of the tasks exit, abort the other.
     tokio::select! {
         rv_a = (&mut send_task) => {
             match rv_a {
-                Ok(a) => println!("{a} messages sent to {who}"),
+                Ok(_) => println!("connection to {who} was closed"),
                 Err(a) => println!("Error sending messages {a:?}")
             }
             recv_task.abort();
         },
         rv_b = (&mut recv_task) => {
             match rv_b {
-                Ok(b) => println!("Received {b} messages"),
+                Ok(_) => println!("connection to {who} was closed"),
                 Err(b) => println!("Error receiving messages {b:?}")
             }
             send_task.abort();

@@ -38,7 +38,8 @@ fn event_handler(_ctx: &mut Context, event: &Event, _seq: Sequence, _end_of_batc
 
 fn main() {
     let factory = || Event::Trade {
-        id: 0,
+        ob_id: 0,
+        trade_id: 0,
         event: TradeEvent {
             size: 0,
             price: 0,

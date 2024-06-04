@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use ende::TryEncodeWithCtx;
-use matcher::{handler::Event, IdGenerator, Symbol};
+use matcher::{handler::Event, Symbol};
 use tokio::io::AsyncWriteExt;
 
 pub mod axum;
@@ -40,25 +40,25 @@ impl TCPPublisher {
 
                 let publish_messages = tokio::spawn(async move {
                     let encoder = ende::Encoder::new();
-                    let mut trade_id_gen = IdGenerator::new();
                     loop {
                         match rx.pop() {
                             Ok(event) => {
                                 for (stream, addr) in clients.lock().await.iter_mut() {
                                     let bytes = match &event {
                                         Event::Order {
-                                            id,
+                                            ob_id: id,
                                             event,
                                             timestamp,
                                         } => continue,
                                         Event::Trade {
-                                            id,
+                                            ob_id: id,
+                                            trade_id,
                                             event,
                                             timestamp,
                                         } => encoder.try_encode(
                                             &event,
                                             (
-                                                trade_id_gen.next_id(),
+                                                *trade_id,
                                                 Symbol::from_repr(*id).unwrap(),
                                                 *timestamp,
                                             ),

@@ -11,15 +11,21 @@ mod disruptor;
 #[cfg(feature = "disruptor")]
 pub use disruptor::*;
 
+#[cfg(feature = "broadcast")]
+mod broadcast;
+#[cfg(feature = "broadcast")]
+pub use broadcast::*;
+
 #[derive(Debug, Clone)]
 pub enum Event {
     Order {
-        id: u64,
+        ob_id: u64,
         event: orderbook::OrderEvent,
         timestamp: chrono::DateTime<chrono::Utc>,
     },
     Trade {
-        id: u64,
+        ob_id: u64,
+        trade_id: u64,
         event: orderbook::TradeEvent,
         timestamp: chrono::DateTime<chrono::Utc>,
     },

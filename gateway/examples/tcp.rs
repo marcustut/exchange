@@ -4,7 +4,7 @@ use matcher::{
     handler::{Handler, RtrbHandler},
     EventHandlerBuilder, Matcher, Order, Symbol, SymbolMetadata,
 };
-use publisher::TCPPublisher;
+use gateway::TCPPublisher;
 use rtrb::RingBuffer;
 
 fn main() {

@@ -1,16 +1,22 @@
 #![cfg(feature = "disruptor")]
 
+use crate::IdGenerator;
+
 use super::{Event, Handler};
 
 use disruptor::{Producer, Sequence, SingleConsumerBarrier, SingleProducer};
 
 pub struct DisruptorHandler {
     tx: SingleProducer<Event, SingleConsumerBarrier>,
+    trade_id_gen: IdGenerator,
 }
 
 impl DisruptorHandler {
     pub fn new(tx: SingleProducer<Event, SingleConsumerBarrier>) -> Self {
-        Self { tx }
+        Self {
+            tx,
+            trade_id_gen: IdGenerator::new(),
+        }
     }
 
     pub fn handle<Ctx>(
@@ -30,7 +36,7 @@ impl Handler for DisruptorHandler {
     fn on_order(ctx: &mut Self::Ctx, id: u64, event: orderbook::OrderEvent) {
         ctx.tx.publish(|e| {
             *e = Event::Order {
-                id,
+                ob_id: id,
                 event,
                 timestamp: chrono::Utc::now(),
             };
@@ -40,7 +46,8 @@ impl Handler for DisruptorHandler {
     fn on_trade(ctx: &mut Self::Ctx, id: u64, event: orderbook::TradeEvent) {
         ctx.tx.publish(|e| {
             *e = Event::Trade {
-                id,
+                ob_id: id,
+                trade_id: ctx.trade_id_gen.next_id(),
                 event,
                 timestamp: chrono::Utc::now(),
             };

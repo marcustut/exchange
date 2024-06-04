@@ -56,13 +56,15 @@ mod tests {
             size: 1230,
             price: 17239821,
             side: matcher::Side::Bid,
+            buyer_order_id: 123,
+            seller_order_id: 124,
         }];
 
         for tc in tcs {
             let encoded = encoder
                 .try_encode(&tc, (1, Symbol::BTCUSDT, chrono::Utc::now()))
                 .unwrap();
-            let trade = decoder.try_decode(&encoded).unwrap();
+            let trade: types::Trade = decoder.try_decode(encoded.as_slice()).unwrap();
 
             assert_eq!(tc.side, trade.taker_side);
             assert_eq!(tc.price, trade.price);
