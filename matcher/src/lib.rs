@@ -1,9 +1,9 @@
-use orderbook::{ffi, Orderbook, OrderbookError};
+use orderbook::{Orderbook, OrderbookError};
 
 pub mod handler;
 mod symbol_table;
 
-pub use orderbook::{EventHandlerBuilder, OrderEvent, Side, TradeEvent};
+pub use orderbook::{ffi, EventHandlerBuilder, OrderEvent, Side, TradeEvent};
 pub use symbol_table::{Symbol, SymbolTable};
 
 #[derive(Debug, Clone, Copy)]
@@ -73,25 +73,46 @@ pub enum MatcherError {
 /// NOTE: The `event_handler` has a lifetime guarantee that as long as the matcher is in
 /// scope, the event_handler must also be in scope, otherwise stack-use-after-scope might
 /// occur in the underlying C orderbook lib.
-pub struct Matcher<'event_handler> {
+// pub struct Matcher<'event_handler> {
+pub struct Matcher {
     books: SymbolTable<SymbolEntry>,
     order_id_gen: IdGenerator,
-    event_handler: &'event_handler mut ffi::event_handler,
+    // event_handler: &'event_handler mut ffi::event_handler,
 }
 
-impl<'event_handler> Matcher<'event_handler> {
-    pub fn new(event_handler: &'event_handler mut ffi::event_handler) -> Self {
+// impl<'event_handler> Matcher<'event_handler> {
+impl Matcher {
+    // pub fn new(event_handler: &'event_handler mut ffi::event_handler) -> Self {
+    //     Self {
+    //         books: SymbolTable::new(),
+    //         order_id_gen: IdGenerator::new(),
+    //         event_handler,
+    //     }
+    // }
+
+    pub fn new() -> Self {
         Self {
             books: SymbolTable::new(),
             order_id_gen: IdGenerator::new(),
-            event_handler,
         }
     }
 
-    pub fn add_symbol(&mut self, symbol: Symbol, metadata: SymbolMetadata) {
+    // pub fn add_symbol(&mut self, symbol: Symbol, metadata: SymbolMetadata) {
+    //     let ob = Orderbook::new()
+    //         .with_id(symbol.into())
+    //         .with_event_handler(self.event_handler);
+    //     self.books.insert(symbol, SymbolEntry { ob, metadata });
+    // }
+
+    pub fn add_symbol(
+        &mut self,
+        symbol: Symbol,
+        metadata: SymbolMetadata,
+        eh: &mut ffi::event_handler,
+    ) {
         let ob = Orderbook::new()
             .with_id(symbol.into())
-            .with_event_handler(self.event_handler);
+            .with_event_handler(eh);
         self.books.insert(symbol, SymbolEntry { ob, metadata });
     }
 
@@ -102,13 +123,13 @@ impl<'event_handler> Matcher<'event_handler> {
         }
     }
 
-    // pub fn get_symbol_table(&self) -> Vec<(u64, &SymbolMetadata)> {
-    //     self.books
-    //         .table
-    //         .iter()
-    //         .filter_map(|entry| entry.as_ref().map(|e| (0u64, &e.metadata)))
-    //         .collect::<Vec<_>>()
-    // }
+    pub fn get_symbol_metadata(&self) -> Vec<(u64, &SymbolMetadata)> {
+        self.books
+            .table
+            .iter()
+            .map(|(symbol, entry)| (*symbol, &entry.metadata))
+            .collect::<Vec<_>>()
+    }
 
     pub fn cancel(&mut self, symbol: Symbol, order_id: u64) -> Result<(), MatcherError> {
         let book = match self.books.get_mut(symbol) {

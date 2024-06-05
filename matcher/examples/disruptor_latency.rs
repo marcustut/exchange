@@ -10,7 +10,6 @@ use matcher::{
 use once_cell::sync::Lazy;
 use orderbook::{EventHandlerBuilder, TradeEvent};
 use rand::Rng;
-use strum::IntoEnumIterator;
 
 const NUM_ORDERS: usize = 100000;
 
@@ -63,7 +62,7 @@ fn main() {
         .build();
 
     // Create the matching engine
-    let mut matcher = Matcher::new(&mut handler);
+    let mut matcher = Matcher::new();
 
     // Initialise the orderbook for all symbols
     for symbol in [Symbol::BTCUSDT, Symbol::ETHUSDT, Symbol::ADAUSDT] {
@@ -74,6 +73,7 @@ fn main() {
                 price_precision: 2,
                 size_precision: 3,
             },
+            &mut handler,
         );
     }
 

@@ -9,6 +9,7 @@ sbe = { path = "../sbe" }
 ende = { path = "../ende" }
 
 rtrb = "0.3"
+disruptor = "2.1"
 
 # Async
 tokio = { version = "1.38", features = ["full"] }

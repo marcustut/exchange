@@ -11,6 +11,7 @@ use axum::{
     Router,
 };
 use axum_extra::TypedHeader;
+use disruptor::{MultiProducer, SingleConsumerBarrier};
 use ende::TryEncodeWithCtx;
 use futures::{sink::SinkExt, stream::StreamExt};
 use tokio::{
@@ -20,25 +21,36 @@ use tokio::{
 
 use matcher::{handler::Event, Symbol};
 
+use crate::Request;
+
 struct AppState {
-    rx: Receiver<Event>,
+    event_rx: Receiver<Event>,
+    request_tx: MultiProducer<Request, SingleConsumerBarrier>,
 }
 
 impl Clone for AppState {
     fn clone(&self) -> Self {
         Self {
-            rx: self.rx.resubscribe(),
+            event_rx: self.event_rx.resubscribe(),
+            request_tx: self.request_tx.clone(),
         }
     }
 }
 
-pub async fn spawn<A>(addr: A, rx: Receiver<Event>) -> Result<(), std::io::Error>
+pub async fn spawn<A>(
+    addr: A,
+    event_rx: Receiver<Event>,
+    request_tx: MultiProducer<Request, SingleConsumerBarrier>,
+) -> Result<(), std::io::Error>
 where
     A: ToSocketAddrs,
 {
     let app = Router::new()
         .route("/ws", get(ws_handler))
-        .with_state(AppState { rx });
+        .with_state(AppState {
+            event_rx,
+            request_tx,
+        });
 
     // run it with hyper
     let listener = TcpListener::bind(addr).await?;
@@ -59,7 +71,10 @@ async fn ws_handler(
     ws: WebSocketUpgrade,
     user_agent: Option<TypedHeader<headers::UserAgent>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    State(AppState { rx }): State<AppState>,
+    State(AppState {
+        event_rx,
+        request_tx,
+    }): State<AppState>,
 ) -> impl IntoResponse {
     let user_agent = if let Some(TypedHeader(user_agent)) = user_agent {
         user_agent.to_string()
@@ -69,7 +84,7 @@ async fn ws_handler(
     println!("`{user_agent}` at {addr} connected.");
     // finalize the upgrade process by returning upgrade callback.
     // we can customize the callback by sending additional info such as address.
-    ws.on_upgrade(move |socket| handle_socket(socket, addr, rx))
+    ws.on_upgrade(move |socket| handle_socket(socket, addr, event_rx))
 }
 
 /// Actual websocket statemachine (one will be spawned per connection)

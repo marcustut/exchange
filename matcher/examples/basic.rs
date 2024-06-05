@@ -11,7 +11,7 @@ fn main() {
         })
         .build();
 
-    let mut matcher = Matcher::new(&mut handler);
+    let mut matcher = Matcher::new();
     matcher.add_symbol(
         Symbol::BTCUSDT,
         SymbolMetadata {
@@ -19,6 +19,7 @@ fn main() {
             price_precision: 2,
             size_precision: 3,
         },
+        &mut handler,
     );
 
     println!("{}", matcher.get_orderbook(Symbol::BTCUSDT).unwrap());
