@@ -2176,6 +2176,7 @@ dependencies = [
  "chrono",
  "core_affinity",
  "disruptor",
+ "intmap 2.0.0",
  "once_cell",
  "orderbook",
  "rand 0.8.5",

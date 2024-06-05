@@ -126,14 +126,7 @@ async fn handle_socket(mut socket: WebSocket, who: SocketAddr, mut rx: Receiver<
                     timestamp,
                 }) => {
                     let bytes = encoder
-                        .try_encode(
-                            &event,
-                            (
-                                trade_id,
-                                Symbol::from_repr(ob_id).expect("should not fail"),
-                                timestamp,
-                            ),
-                        )
+                        .try_encode(&event, (trade_id, Symbol(ob_id), timestamp))
                         .expect("should not fail");
 
                     // In case of any websocket error, we exit.

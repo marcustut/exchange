@@ -57,11 +57,7 @@ impl TCPPublisher {
                                             timestamp,
                                         } => encoder.try_encode(
                                             &event,
-                                            (
-                                                *trade_id,
-                                                Symbol::from_repr(*id).unwrap(),
-                                                *timestamp,
-                                            ),
+                                            (*trade_id, Symbol(*id), *timestamp),
                                         ),
                                     }
                                     .unwrap();

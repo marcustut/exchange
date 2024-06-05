@@ -1,5 +1,3 @@
-use crate::Symbol;
-
 use super::Handler;
 
 pub struct StdOutHandler {
@@ -27,10 +25,7 @@ impl Handler for StdOutHandler {
     fn on_order(ctx: &mut Self::Ctx, id: u64, event: orderbook::OrderEvent) {
         ctx.counter += 1;
         let id = match ctx.id_as_symbol {
-            true => match Symbol::from_repr(id) {
-                Some(symbol) => symbol.to_string(),
-                None => id.to_string(),
-            },
+            true => id.to_string(),
             false => id.to_string(),
         };
         println!("[{:?}] {} {:?}", id, ctx.counter, event)
@@ -39,10 +34,7 @@ impl Handler for StdOutHandler {
     fn on_trade(ctx: &mut Self::Ctx, id: u64, event: orderbook::TradeEvent) {
         ctx.counter += 1;
         let id = match ctx.id_as_symbol {
-            true => match Symbol::from_repr(id) {
-                Some(symbol) => symbol.to_string(),
-                None => id.to_string(),
-            },
+            true => id.to_string(),
             false => id.to_string(),
         };
         println!("[{:?}] {} {:?}", id, ctx.counter, event)

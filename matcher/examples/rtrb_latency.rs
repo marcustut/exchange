@@ -10,7 +10,6 @@ use once_cell::sync::Lazy;
 use orderbook::EventHandlerBuilder;
 use rand::Rng;
 use rtrb::RingBuffer;
-use strum::IntoEnumIterator;
 
 const NUM_ORDERS: usize = 100000;
 
@@ -53,7 +52,7 @@ fn main() {
     let mut matcher = Matcher::new(&mut handler);
 
     // Initialise the orderbook for all symbols
-    for symbol in Symbol::iter() {
+    for symbol in [Symbol::BTCUSDT, Symbol::ETHUSDT, Symbol::ADAUSDT] {
         matcher.add_symbol(
             symbol,
             SymbolMetadata {

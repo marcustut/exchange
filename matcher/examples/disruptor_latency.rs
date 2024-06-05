@@ -66,7 +66,7 @@ fn main() {
     let mut matcher = Matcher::new(&mut handler);
 
     // Initialise the orderbook for all symbols
-    for symbol in Symbol::iter() {
+    for symbol in [Symbol::BTCUSDT, Symbol::ETHUSDT, Symbol::ADAUSDT] {
         matcher.add_symbol(
             symbol,
             SymbolMetadata {

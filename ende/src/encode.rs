@@ -78,7 +78,7 @@ impl TryEncodeWithCtx<&TradeEvent> for Encoder {
         );
         trade = trade.header(0).parent()?;
         trade.trade_id(trade_id);
-        trade.symbol_id(symbol as u64);
+        trade.symbol_id(u64::from(symbol));
         trade.price(data.price);
         trade.size(data.size);
         trade.taker_side(match data.side {

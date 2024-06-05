@@ -90,7 +90,7 @@ impl<'event_handler> Matcher<'event_handler> {
 
     pub fn add_symbol(&mut self, symbol: Symbol, metadata: SymbolMetadata) {
         let ob = Orderbook::new()
-            .with_id(symbol as u64)
+            .with_id(symbol.into())
             .with_event_handler(self.event_handler);
         self.books.insert(symbol, SymbolEntry { ob, metadata });
     }
@@ -102,13 +102,13 @@ impl<'event_handler> Matcher<'event_handler> {
         }
     }
 
-    pub fn get_symbol_table(&self) -> Vec<(u64, &SymbolMetadata)> {
-        self.books
-            .table
-            .iter()
-            .filter_map(|entry| entry.as_ref().map(|e| (0u64, &e.metadata)))
-            .collect::<Vec<_>>()
-    }
+    // pub fn get_symbol_table(&self) -> Vec<(u64, &SymbolMetadata)> {
+    //     self.books
+    //         .table
+    //         .iter()
+    //         .filter_map(|entry| entry.as_ref().map(|e| (0u64, &e.metadata)))
+    //         .collect::<Vec<_>>()
+    // }
 
     pub fn cancel(&mut self, symbol: Symbol, order_id: u64) -> Result<(), MatcherError> {
         let book = match self.books.get_mut(symbol) {
