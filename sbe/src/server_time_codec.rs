@@ -1,7 +1,7 @@
 use crate::*;
 
-pub use encoder::ServerTimeResponseEncoder;
-pub use decoder::ServerTimeResponseDecoder;
+pub use encoder::ServerTimeEncoder;
+pub use decoder::ServerTimeDecoder;
 
 pub const SBE_BLOCK_LENGTH: u16 = 8;
 pub const SBE_TEMPLATE_ID: u16 = 102;
@@ -14,21 +14,21 @@ pub mod encoder {
     use message_header_codec::*;
 
     #[derive(Debug, Default)]
-    pub struct ServerTimeResponseEncoder<'a> {
+    pub struct ServerTimeEncoder<'a> {
         buf: WriteBuf<'a>,
         initial_offset: usize,
         offset: usize,
         limit: usize,
     }
 
-    impl<'a> Writer<'a> for ServerTimeResponseEncoder<'a> {
+    impl<'a> Writer<'a> for ServerTimeEncoder<'a> {
         #[inline]
         fn get_buf_mut(&mut self) -> &mut WriteBuf<'a> {
             &mut self.buf
         }
     }
 
-    impl<'a> Encoder<'a> for ServerTimeResponseEncoder<'a> {
+    impl<'a> Encoder<'a> for ServerTimeEncoder<'a> {
         #[inline]
         fn get_limit(&self) -> usize {
             self.limit
@@ -40,7 +40,7 @@ pub mod encoder {
         }
     }
 
-    impl<'a> ServerTimeResponseEncoder<'a> {
+    impl<'a> ServerTimeEncoder<'a> {
         pub fn wrap(mut self, buf: WriteBuf<'a>, offset: usize) -> Self {
             let limit = offset + SBE_BLOCK_LENGTH as usize;
             self.buf = buf;
@@ -88,7 +88,7 @@ pub mod decoder {
     use message_header_codec::*;
 
     #[derive(Clone, Copy, Debug, Default)]
-    pub struct ServerTimeResponseDecoder<'a> {
+    pub struct ServerTimeDecoder<'a> {
         buf: ReadBuf<'a>,
         initial_offset: usize,
         offset: usize,
@@ -97,21 +97,21 @@ pub mod decoder {
         pub acting_version: u16,
     }
 
-    impl<'a> ActingVersion for ServerTimeResponseDecoder<'a> {
+    impl<'a> ActingVersion for ServerTimeDecoder<'a> {
         #[inline]
         fn acting_version(&self) -> u16 {
             self.acting_version
         }
     }
 
-    impl<'a> Reader<'a> for ServerTimeResponseDecoder<'a> {
+    impl<'a> Reader<'a> for ServerTimeDecoder<'a> {
         #[inline]
         fn get_buf(&self) -> &ReadBuf<'a> {
             &self.buf
         }
     }
 
-    impl<'a> Decoder<'a> for ServerTimeResponseDecoder<'a> {
+    impl<'a> Decoder<'a> for ServerTimeDecoder<'a> {
         #[inline]
         fn get_limit(&self) -> usize {
             self.limit
@@ -123,7 +123,7 @@ pub mod decoder {
         }
     }
 
-    impl<'a> ServerTimeResponseDecoder<'a> {
+    impl<'a> ServerTimeDecoder<'a> {
         pub fn wrap(
             mut self,
             buf: ReadBuf<'a>,

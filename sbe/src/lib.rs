@@ -2,13 +2,13 @@
 #![allow(clippy::upper_case_acronyms)]
 #![allow(non_camel_case_types)]
 
-use ::core::{convert::TryInto};
+use ::core::convert::TryInto;
 
-pub mod server_time_response_codec;
 pub mod message_header_codec;
-pub mod trade_codec;
+pub mod ping_codec;
+pub mod server_time_codec;
 pub mod side;
-pub mod ping_response_codec;
+pub mod trade_codec;
 
 pub type SbeResult<T> = core::result::Result<T, SbeErr>;
 
@@ -76,7 +76,9 @@ impl<'a> ReadBuf<'a> {
 
     #[inline]
     pub(crate) fn get_bytes_at<const N: usize>(slice: &[u8], index: usize) -> [u8; N] {
-        slice[index..index+N].try_into().expect("slice with incorrect length")
+        slice[index..index + N]
+            .try_into()
+            .expect("slice with incorrect length")
     }
 
     #[inline]
@@ -131,9 +133,8 @@ impl<'a> ReadBuf<'a> {
 
     #[inline]
     pub fn get_slice_at(&self, index: usize, len: usize) -> &[u8] {
-        &self.data[index..index+len]
+        &self.data[index..index + len]
     }
-
 }
 
 #[derive(Debug, Default)]
@@ -209,4 +210,3 @@ impl<'a> WriteBuf<'a> {
         len
     }
 }
-

@@ -1,26 +1,29 @@
+use sbe::{
+    ping_codec::{self, PingEncoder},
+    server_time_codec::{self, ServerTimeEncoder},
+};
+
 use super::*;
 
-pub trait Encode<In> {
-    type Out;
-
-    fn encode(&self, data: In) -> Self::Out;
+pub trait Encode<In, Out> {
+    fn encode(&self, data: In) -> Out;
 }
 
-pub trait TryEncode<In> {
-    type Out;
-
-    fn try_encode(&self, data: In) -> Result<Self::Out>;
+pub trait TryEncode<In, Out> {
+    fn try_encode(&self, data: In) -> Result<Out>;
 }
 
-pub trait TryEncodeWithCtx<In> {
-    type Out;
+pub trait TryEncodeWithCtx<In, Out> {
     type Ctx;
 
-    fn try_encode(&self, data: In, ctx: Self::Ctx) -> Result<Self::Out>;
+    fn try_encode(&self, data: In, ctx: Self::Ctx) -> Result<Out>;
 }
 
 #[derive(Debug)]
 pub struct Encoder {}
+
+pub struct Ping {}
+pub struct ServerTime {}
 
 impl Encoder {
     pub fn new() -> Self {
@@ -28,15 +31,13 @@ impl Encoder {
     }
 }
 
-impl Encode<f64> for Encoder {
-    type Out = (u64, i16, i8);
-
+impl Encode<f64, (u64, i16, i8)> for Encoder {
     // This method encodes a `f64` into (mantissa, exponent) pair which does not
     // require floating point operations to decode. It can be recovered by
     // `sign * mantissa * 2^exponent`.
     //
     // See: <https://stackoverflow.com/questions/75430066/why-does-integer-decode-in-rust-work-that-way>
-    fn encode(&self, data: f64) -> Self::Out {
+    fn encode(&self, data: f64) -> (u64, i16, i8) {
         // IEEE754 64-bit floating point representation in bits:
         //
         // 1  bit for sign     (Bit 63)
@@ -64,11 +65,39 @@ impl Encode<f64> for Encoder {
     }
 }
 
-impl TryEncodeWithCtx<&TradeEvent> for Encoder {
-    type Out = Vec<u8>;
+impl Encode<Ping, Vec<u8>> for Encoder {
+    fn encode(&self, _data: Ping) -> Vec<u8> {
+        let mut buffer = vec![0u8; ping_codec::SBE_BLOCK_LENGTH as usize];
+        let mut ping = PingEncoder::default();
+        ping = ping.wrap(
+            WriteBuf::new(buffer.as_mut_slice()),
+            message_header_codec::ENCODED_LENGTH,
+        );
+        ping = ping.header(0).parent().unwrap();
+
+        buffer
+    }
+}
+
+impl Encode<ServerTime, Vec<u8>> for Encoder {
+    fn encode(&self, _data: ServerTime) -> Vec<u8> {
+        let mut buffer = vec![0u8; (server_time_codec::SBE_BLOCK_LENGTH as usize) + 8];
+        let mut server_time = ServerTimeEncoder::default();
+        server_time = server_time.wrap(
+            WriteBuf::new(buffer.as_mut_slice()),
+            message_header_codec::ENCODED_LENGTH,
+        );
+        server_time = server_time.header(0).parent().unwrap();
+        server_time.server_time(chrono::Utc::now().timestamp_nanos_opt().unwrap());
+
+        buffer
+    }
+}
+
+impl TryEncodeWithCtx<&TradeEvent, Vec<u8>> for Encoder {
     type Ctx = (u64, Symbol, chrono::DateTime<chrono::Utc>);
 
-    fn try_encode(&self, data: &TradeEvent, ctx: Self::Ctx) -> Result<Self::Out> {
+    fn try_encode(&self, data: &TradeEvent, ctx: Self::Ctx) -> Result<Vec<u8>> {
         let (trade_id, symbol, timestamp) = ctx;
         let mut buffer = vec![0u8; (trade_codec::SBE_BLOCK_LENGTH as usize) + 456];
         let mut trade = TradeEncoder::default();

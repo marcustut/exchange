@@ -12,7 +12,7 @@ use axum::{
 };
 use axum_extra::TypedHeader;
 use disruptor::{MultiProducer, SingleConsumerBarrier};
-use ende::TryEncodeWithCtx;
+use ende::{Encode, TryEncodeWithCtx};
 use futures::{sink::SinkExt, stream::StreamExt};
 use tokio::{
     net::{TcpListener, ToSocketAddrs},
@@ -47,6 +47,8 @@ where
 {
     let app = Router::new()
         .route("/ws", get(ws_handler))
+        .route("/ping", get(ping_handler))
+        .route("/server_time", get(server_time_handler))
         .with_state(AppState {
             event_rx,
             request_tx,
@@ -60,6 +62,16 @@ where
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
     .await
+}
+
+async fn ping_handler() -> impl IntoResponse {
+    let encoder = ende::Encoder::new();
+    encoder.encode(ende::encode::Ping {})
+}
+
+async fn server_time_handler() -> impl IntoResponse {
+    let encoder = ende::Encoder::new();
+    encoder.encode(ende::encode::ServerTime {})
 }
 
 /// The handler for the HTTP request (this gets called when the HTTP GET lands at the start

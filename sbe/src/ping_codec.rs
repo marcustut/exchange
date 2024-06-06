@@ -1,7 +1,7 @@
 use crate::*;
 
-pub use encoder::PingResponseEncoder;
-pub use decoder::PingResponseDecoder;
+pub use encoder::PingEncoder;
+pub use decoder::PingDecoder;
 
 pub const SBE_BLOCK_LENGTH: u16 = 0;
 pub const SBE_TEMPLATE_ID: u16 = 101;
@@ -14,21 +14,21 @@ pub mod encoder {
     use message_header_codec::*;
 
     #[derive(Debug, Default)]
-    pub struct PingResponseEncoder<'a> {
+    pub struct PingEncoder<'a> {
         buf: WriteBuf<'a>,
         initial_offset: usize,
         offset: usize,
         limit: usize,
     }
 
-    impl<'a> Writer<'a> for PingResponseEncoder<'a> {
+    impl<'a> Writer<'a> for PingEncoder<'a> {
         #[inline]
         fn get_buf_mut(&mut self) -> &mut WriteBuf<'a> {
             &mut self.buf
         }
     }
 
-    impl<'a> Encoder<'a> for PingResponseEncoder<'a> {
+    impl<'a> Encoder<'a> for PingEncoder<'a> {
         #[inline]
         fn get_limit(&self) -> usize {
             self.limit
@@ -40,7 +40,7 @@ pub mod encoder {
         }
     }
 
-    impl<'a> PingResponseEncoder<'a> {
+    impl<'a> PingEncoder<'a> {
         pub fn wrap(mut self, buf: WriteBuf<'a>, offset: usize) -> Self {
             let limit = offset + SBE_BLOCK_LENGTH as usize;
             self.buf = buf;
@@ -73,7 +73,7 @@ pub mod decoder {
     use message_header_codec::*;
 
     #[derive(Clone, Copy, Debug, Default)]
-    pub struct PingResponseDecoder<'a> {
+    pub struct PingDecoder<'a> {
         buf: ReadBuf<'a>,
         initial_offset: usize,
         offset: usize,
@@ -82,21 +82,21 @@ pub mod decoder {
         pub acting_version: u16,
     }
 
-    impl<'a> ActingVersion for PingResponseDecoder<'a> {
+    impl<'a> ActingVersion for PingDecoder<'a> {
         #[inline]
         fn acting_version(&self) -> u16 {
             self.acting_version
         }
     }
 
-    impl<'a> Reader<'a> for PingResponseDecoder<'a> {
+    impl<'a> Reader<'a> for PingDecoder<'a> {
         #[inline]
         fn get_buf(&self) -> &ReadBuf<'a> {
             &self.buf
         }
     }
 
-    impl<'a> Decoder<'a> for PingResponseDecoder<'a> {
+    impl<'a> Decoder<'a> for PingDecoder<'a> {
         #[inline]
         fn get_limit(&self) -> usize {
             self.limit
@@ -108,7 +108,7 @@ pub mod decoder {
         }
     }
 
-    impl<'a> PingResponseDecoder<'a> {
+    impl<'a> PingDecoder<'a> {
         pub fn wrap(
             mut self,
             buf: ReadBuf<'a>,

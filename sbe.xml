@@ -114,13 +114,13 @@
     <!-- Response for
         - REST GET /api/v3/ping
         - WebSocket "method":"ping" -->
-    <sbe:message name="PingResponse" id="101">
+    <sbe:message name="Ping" id="101">
     </sbe:message>
 
     <!-- Response for
         - REST GET /api/v3/time
         - WebSocket "method":"time" -->
-    <sbe:message name="ServerTimeResponse" id="102">
+    <sbe:message name="ServerTime" id="102">
         <field id="1" name="serverTime" type="utcTimestampNs"/>
     </sbe:message>
 
